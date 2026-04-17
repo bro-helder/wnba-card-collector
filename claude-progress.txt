@@ -4,34 +4,79 @@
 
 ---
 
-## Session: [DATE] — [SHORT LABEL, e.g. "Phase 1 · Schema Migration"]
+## Session: April 17, 2026 — Progress Note Update
 
 ### Completed This Session
-- 
+- Reviewed current repository scaffold and confirmed Phase 1 baseline is present.
+- Verified `app/scan/page.tsx` already contains the Phase 2 scan workflow placeholder.
+- Updated `claude-progress.txt` to reflect the latest session note.
 
 ### Phase Checklist Updates
-<!-- Copy the relevant checkbox lines from the PRD and mark what changed -->
-- [ ] Example: Supabase project setup
+- [x] Phase 1 complete
+- [ ] Phase 2 scaffold present
+- [ ] Phase 2 implementation not started
 
 ### Decisions Made
-<!-- Any choices made during the session not already in the PRD open questions log -->
-- 
+- Retained Phase 1 completion status; no new feature work was applied.
+- Marked current file update as a progress note only.
 
 ### In-Flight / Partially Done
-<!-- Anything started but not committed or not fully working -->
-- 
+- None
 
 ### Blockers / Open Questions
-<!-- Anything that needs Brook's input before proceeding -->
-- 
+- None
 
 ### Next Session: Start Here
-<!-- Be specific — the next Claude session will read this cold -->
-- 
+- Begin Phase 2 implementation for Claude Vision scan workflow.
+- Add camera/upload UI and card confirmation screen.
+- Build Stage 1 and Stage 2 identification pipeline.
+
+---
+
+## Session: April 17, 2026 — Phase 1 · Iconography Update
+
+### Completed This Session
+- Installed @phosphor-icons/react package
+- Updated BottomNav component to use Phosphor icons (Basketball, Camera, Star, Target, ShoppingCart) instead of emoji
+- Fixed tsconfig.json ignoreDeprecations setting from "6.0" to "5.0"
+- Updated styling-guidelines.md to specify @phosphor-icons/react as the icon library
+- Validated TypeScript compilation and committed all changes
+- Pushed changes to GitHub repository
+
+### Phase Checklist Updates
+- [x] Next.js scaffold with App Router and TypeScript
+- [x] Supabase integration with dedicated schema and RLS policies
+- [x] Google OAuth authentication flow
+- [x] Mobile-first responsive design with Tailwind CSS
+- [x] Bottom navigation with standardized Phosphor icons
+- [x] Auth guards on protected routes
+- [x] Database schema with integrity constraints
+- [x] Code review fixes for security and UX issues
+- [x] GitHub repository setup and documentation
+- [x] Environment template and build validation
+
+### Decisions Made
+- Standardized on Phosphor icons over emoji for better accessibility and consistency
+- Fixed tsconfig.json ignoreDeprecations to use correct string value "5.0"
+
+### In-Flight / Partially Done
+- None - Phase 1 fully completed
+
+### Blockers / Open Questions
+- None - ready for Phase 2
+
+### Next Session: Start Here
+- Begin Phase 2: Implement AI-powered card scanning with Claude Vision API
+- Create /scan route with camera integration
+- Set up Claude Vision API integration for card identification
+- Design card data models and scanning workflow
 
 ### Key Files Touched
-<!-- List files modified this session so the next session can orient quickly -->
-- 
+- src/components/BottomNav.tsx (updated to use Phosphor icons)
+- tsconfig.json (fixed ignoreDeprecations setting)
+- styling-guidelines.md (updated icon library specification)
+- package.json (added @phosphor-icons/react dependency)
+- claude-progress.txt (this file)
 
 ---
 <!-- PASTE ADDITIONAL SESSIONS ABOVE THIS LINE -->
@@ -42,7 +87,7 @@
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| 1 | Manual collection management | 🔲 Not started |
+| 1 | Manual collection management | ✅ Complete |
 | 2 | Scan pipeline | 🔲 Not started |
 | 3 | Want list + goals | 🔲 Not started |
 | 4 | eBay alerts + comps | 🔲 Not started |

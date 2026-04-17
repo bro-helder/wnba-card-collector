@@ -2,7 +2,7 @@
 
 **Version:** 0.1 (Living Document)
 **Owner:** Brook
-**Last Updated:** April 2026
+**Last Updated:** April 17, 2026
 **Stack:** Next.js · Supabase · Vercel · Claude Vision API · eBay API · Resend
 **Companion Docs:** `styling-guidelines.md` (UI/UX, design tokens, component patterns)
 
@@ -729,16 +729,16 @@ Bottom tab bar with 5 items:
 
 **Goal:** Working app shell, auth, schema, and manual collection CRUD
 
-- [ ] Supabase project setup
-- [ ] Run schema migrations (all tables + RLS policies)
-- [ ] Google OAuth configured
-- [ ] Next.js project scaffold on Vercel
-- [ ] Mobile-first shell: bottom nav, routing
-- [ ] Profiles: create on first login
-- [ ] Collection: manual add / edit / delete card
-- [ ] Collection: list + search view
-- [ ] Checklist management: add set, add parallels, add cards
-- [ ] CSV import for cards
+- [x] Supabase project setup
+- [x] Run schema migrations (all tables + RLS policies)
+- [x] Google OAuth configured
+- [x] Next.js project scaffold on Vercel
+- [x] Mobile-first shell: bottom nav, routing
+- [x] Profiles: create on first login
+- [x] Collection: manual add / edit / delete card
+- [x] Collection: list + search view
+- [x] Checklist management: add set, add parallels, add cards
+- [x] CSV import for cards
 
 **Done when:** You can manually add a card to your collection and see it in the list.
 

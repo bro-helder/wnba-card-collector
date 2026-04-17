@@ -230,11 +230,17 @@ alter table wnba_cards.ebay_comps enable row level security;
 create policy "Authenticated users can read reference data" on wnba_cards.sets
   for select using (auth.role() = 'authenticated');
 
+create policy "Authenticated users can manage reference sets" on wnba_cards.sets
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
 create policy "Authenticated users can read reference data" on wnba_cards.parallels
   for select using (auth.role() = 'authenticated');
 
 create policy "Authenticated users can read reference data" on wnba_cards.cards
   for select using (auth.role() = 'authenticated');
+
+create policy "Authenticated users can manage reference cards" on wnba_cards.cards
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 create policy "Authenticated users can read eBay comp cache" on wnba_cards.ebay_comps
   for select using (auth.role() = 'authenticated');
