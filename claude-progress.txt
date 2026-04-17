@@ -1,0 +1,52 @@
+# WNBA Card Collector — Session Progress Log
+# Updated by Claude at the end of every session. Do not edit manually mid-session.
+# Format: newest session at the top.
+
+---
+
+## Session: [DATE] — [SHORT LABEL, e.g. "Phase 1 · Schema Migration"]
+
+### Completed This Session
+- 
+
+### Phase Checklist Updates
+<!-- Copy the relevant checkbox lines from the PRD and mark what changed -->
+- [ ] Example: Supabase project setup
+
+### Decisions Made
+<!-- Any choices made during the session not already in the PRD open questions log -->
+- 
+
+### In-Flight / Partially Done
+<!-- Anything started but not committed or not fully working -->
+- 
+
+### Blockers / Open Questions
+<!-- Anything that needs Brook's input before proceeding -->
+- 
+
+### Next Session: Start Here
+<!-- Be specific — the next Claude session will read this cold -->
+- 
+
+### Key Files Touched
+<!-- List files modified this session so the next session can orient quickly -->
+- 
+
+---
+<!-- PASTE ADDITIONAL SESSIONS ABOVE THIS LINE -->
+---
+
+## Phase Status Summary
+<!-- Update this block at the end of each session -->
+
+| Phase | Goal | Status |
+|-------|------|--------|
+| 1 | Manual collection management | 🔲 Not started |
+| 2 | Scan pipeline | 🔲 Not started |
+| 3 | Want list + goals | 🔲 Not started |
+| 4 | eBay alerts + comps | 🔲 Not started |
+| 5 | eBay listing helper | 🔲 Not started |
+| 6 | PWA + polish | 🔲 Not started |
+
+Status key: 🔲 Not started · 🟡 In progress · ✅ Complete

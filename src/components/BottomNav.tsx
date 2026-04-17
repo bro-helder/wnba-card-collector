@@ -1,14 +1,16 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Basketball, Camera, Star, Target, ShoppingCart } from '@phosphor-icons/react';
 
 const tabs = [
-  { href: '/', label: 'Collection', icon: '🏀' },
-  { href: '/scan', label: 'Scan', icon: '📸' },
-  { href: '/want-list', label: 'Want List', icon: '⭐' },
-  { href: '/goals', label: 'Goals', icon: '🎯' },
-  { href: '/ebay', label: 'eBay', icon: '💰' },
+  { href: '/', label: 'Collection', icon: Basketball },
+  { href: '/scan', label: 'Scan', icon: Camera },
+  { href: '/want-list', label: 'Want List', icon: Star },
+  { href: '/goals', label: 'Goals', icon: Target },
+  { href: '/ebay', label: 'eBay', icon: ShoppingCart },
 ];
 
 export function BottomNav() {
@@ -28,7 +30,7 @@ export function BottomNav() {
                 active ? 'text-cyan-300' : 'text-slate-500 hover:text-slate-100'
               }`}
             >
-              <span className="text-xl">{tab.icon}</span>
+              <span className="text-xl">{React.createElement(tab.icon, { size: 20 })}</span>
               <span>{tab.label}</span>
             </Link>
           );

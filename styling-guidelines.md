@@ -425,9 +425,9 @@ Borrowed from standings streak badges:
 
 ## 10. Iconography
 
-- **Library:** `lucide-react`
+- **Library:** `@phosphor-icons/react`
 - **Sizes:** 16px inline · 20px standard · 24px navigation
-- **Style:** Stroke, `strokeWidth={1.5}`
+- **Style:** Regular weight by default, Bold for primary actions
 - **Color:** Inherit from context — no hardcoded icon colors in components
 
 ---
