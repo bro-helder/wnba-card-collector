@@ -14,26 +14,40 @@ Phase 1 foundation for a WNBA trading card collection tracker.
 
 ## Setup
 
-1. Install dependencies:
+1. **Create GitHub Repository:**
+   ```bash
+   # Option 1: Using GitHub CLI (if installed)
+   gh repo create wnba-card-collector --public --source=. --remote=origin --push
 
-```bash
-npm install
-```
+   # Option 2: Manual creation
+   # 1. Go to https://github.com/new
+   # 2. Repository name: wnba-card-collector
+   # 3. Make it public
+   # 4. Don't initialize with README
+   # 5. Run: git remote add origin https://github.com/YOUR_USERNAME/wnba-card-collector.git
+   # 6. Run: git push -u origin main
+   ```
 
-2. Create a `.env.local` file with Supabase values:
+2. **Setup Environment:**
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your Supabase credentials
+   ```
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
+3. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-3. Run the development server:
+4. **Setup Supabase:**
+   - Create a new Supabase project
+   - Run the migration: `supabase/migrations/00000000000000_init.sql`
+   - Configure Google OAuth in Supabase Auth settings
 
-```bash
-npm run dev
-```
-
-4. Apply the Supabase migration SQL in `supabase/migrations/00000000000000_init.sql` to your Supabase project. This creates all tables in a dedicated `wnba_cards` schema to avoid conflicts with other projects.
+5. **Start Development:**
+   ```bash
+   npm run dev
+   ```
 
 ## Notes
 
