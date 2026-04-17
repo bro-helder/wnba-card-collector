@@ -4,6 +4,130 @@
 
 ---
 
+## Session: April 17, 2026 — Phase 2 · Bug Fixes + Auto-Create + Front/Back Support
+
+### Completed This Session
+- Added front + back image support throughout the full scan pipeline
+  - Upload route accepts `front` + `back` multipart fields; stores both to Storage
+  - Edge Functions accept `front_image_base64`, `back_image_base64` inline (bypasses Storage download)
+  - Stage 2 prompt updated to use both images when back is provided
+  - Scan page `ImageZone` component handles front/back capture separately
+- Decoupled AI pipeline from Storage: images passed as inline base64 so scan works even if Storage upload fails
+- Fixed "Failed to create scan session" (500): upload route was inserting `front_image_path`/`back_image_path` columns that don't exist until migration 00002 runs; removed them from insert
+- Fixed "Edge Function returned a non-2xx status code": all Edge Functions now always return HTTP 200; errors returned in body as `{ error: "..." }` so callers always see the real message
+- Fixed POST /api/scan/confirm 500: `upsertSet`/`upsertCard` were inserting `needs_review: true` before migration 00003 ran; fixed with two-step pattern (insert without column, then best-effort update that silently fails if column absent)
+- Implemented auto-create checklist entries on confirm
+  - `upsertSet()`: case-insensitive match on name + year; creates set if not found
+  - `upsertCard()`: exact match on set_id + card_number; creates card if not found
+  - Auto-created rows flagged with `needs_review = true` for later cleanup
+  - Confirm always works — no checklist required
+- Scan page shows note "will be added automatically and flagged for review" when card_id is null
+- Added migration `20260417000002_phase2_back_image.sql`: `front_image_path` + `back_image_path` columns on `scan_sessions`
+- Added migration `20260417000003_needs_review_flag.sql`: `needs_review boolean` on `sets` and `cards` + partial index
+- Created `src/lib/database.types.ts`: full typed `Database` interface for all 13 tables, Row/Insert/Update types, convenience aliases
+
+### Phase Checklist Updates
+- [x] Front + back image capture in scan UI
+- [x] Inline base64 image transport to Edge Functions (no Storage dependency)
+- [x] Auto-create set/card on confirm (no checklist required)
+- [x] needs_review flag for auto-created rows
+- [x] Migration-resilient inserts (works at any migration state)
+- [x] database.types.ts with full schema coverage
+
+### Decisions Made
+- All Edge Functions return HTTP 200 — errors in body. Supabase `functions.invoke` drops body on non-2xx, so this is required for error visibility.
+- Auto-create on confirm is the right UX: never block a user from adding a card they physically own.
+- `needs_review` flag (not a separate table) for cleanup queue — simple, queryable via partial index.
+
+### In-Flight / Partially Done
+- None
+
+### Blockers / Open Questions
+- All three migrations (00001, 00002, 00003) must be applied in order
+- Edge Functions must be deployed: `supabase functions deploy scan-stage1 scan-stage2`
+- ANTHROPIC_API_KEY must be set as Supabase Edge Function secret
+
+### Next Session: Start Here
+- Smoke test full flow: upload front+back → Stage 1 → Stage 2 → confirm → collection entry
+- Verify `needs_review` queue works (check sets + cards tables after scan)
+- Begin Phase 3: Want List + Goals
+
+---
+
+## Session: April 17, 2026 — Phase 2 · Scan Pipeline
+
+### Completed This Session
+- Created Supabase Storage bucket migration (`20260417000001_phase2_storage.sql`)
+  - `card-images` bucket, 10MB limit, JPEG/PNG/WebP/HEIC only
+  - RLS: users can upload/read/delete their own images (path-scoped by user_id)
+- Built `supabase/functions/scan-stage1/index.ts` Edge Function
+  - Accepts session_id + image_url, downloads image from Storage
+  - Calls claude-sonnet-4-6 Vision with Stage 1 system prompt
+  - Tries to match result against checklist DB (cards table)
+  - Saves scan_results rows + updates session status to `identified`
+  - Returns top 3 candidates with confidence scores
+- Built `supabase/functions/scan-stage2/index.ts` Edge Function
+  - Accepts session_id + selected card identity
+  - Fetches parallels from DB for the set; filters by print_run if serial detected
+  - Calls claude-sonnet-4-6 Vision with Stage 2 system prompt + parallel descriptors
+  - Updates rank-1 scan_result with parallel classification
+  - Returns top 3 parallel candidates with reasoning
+- Built `src/app/api/scan/upload/route.ts`
+  - Accepts multipart form upload, validates file type
+  - Uploads to `card-images/{user_id}/{timestamp}.{ext}` in Supabase Storage
+  - Creates scan_session record, returns session_id + image_url
+- Built `src/app/api/scan/confirm/route.ts`
+  - Validates session ownership, writes to collection table
+  - Marks scan_session confirmed + scan_result rank-1 confirmed=true
+- Built full scan page UI (`src/app/scan/page.tsx`)
+  - 5 stages: idle → uploading → identifying → classifying → confirming → success
+  - Manual entry fallback ("None of these")
+  - Editable fields on confirmation: player, set, card#, serial, condition, cost, date
+  - Confidence indicator (HIGH/MEDIUM/LOW) with color coding
+  - Expandable AI reasoning panel
+  - Candidate navigator (prev/next for top 3 candidates)
+  - Low-confidence warning banner
+- Updated `tailwind.config.ts` with full WNBA color palette + font-display variable
+- Updated `src/styles/globals.css` with WNBA dark theme, `.input-field` component class
+- Updated `src/app/layout.tsx` with Barlow Condensed + Inter fonts (Google Fonts)
+- Excluded `supabase/functions` from Next.js tsconfig (Deno code, not Node)
+- TypeScript: `npx tsc --noEmit` passes clean
+
+### Phase Checklist Updates
+- [x] Phase 1 complete
+- [x] Supabase Storage bucket migration for card images
+- [x] Image upload API route (camera/photo picker)
+- [x] Stage 1 Edge Function (Claude Vision — card identity)
+- [x] Stage 2 Edge Function (Claude Vision — parallel classification)
+- [x] Serial number detection + candidate filtering logic
+- [x] Scan confirmation UI (top 3 candidates, confidence, reasoning)
+- [x] Confirm → write to collection
+- [x] "None of these" → manual entry fallback
+- [x] Scan session logging
+
+### Decisions Made
+- Used `claude-sonnet-4-6` (not `claude-3-5-sonnet` as originally specified in PRD — updated to current model)
+- Edge Functions use Deno URL imports; excluded from Next.js tsconfig
+- Storage paths scoped as `{user_id}/{timestamp}.{ext}` for RLS enforcement
+- Stage 2 skips if no matched card_id from Stage 1 (avoids noise on unknown cards)
+- Manual entry requires card to exist in checklist (keeps collection data integrity)
+
+### In-Flight / Partially Done
+- None — Phase 2 fully implemented
+
+### Blockers / Open Questions
+- Supabase Storage bucket must be created by running the migration (`20260417000001_phase2_storage.sql`)
+- ANTHROPIC_API_KEY must be set in Supabase Edge Function environment secrets
+- Edge Functions must be deployed: `supabase functions deploy scan-stage1 scan-stage2`
+
+### Next Session: Start Here
+- Deploy Edge Functions to Supabase
+- Run Phase 2 storage migration
+- Smoke test full scan flow: upload → stage1 → stage2 → confirm → collection
+- Begin Phase 3: Want List + Goals
+
+---
+
 ## Session: April 17, 2026 — Progress Note Update
 
 ### Completed This Session
@@ -88,7 +212,7 @@
 | Phase | Goal | Status |
 |-------|------|--------|
 | 1 | Manual collection management | ✅ Complete |
-| 2 | Scan pipeline | 🔲 Not started |
+| 2 | Scan pipeline | ✅ Complete |
 | 3 | Want list + goals | 🔲 Not started |
 | 4 | eBay alerts + comps | 🔲 Not started |
 | 5 | eBay listing helper | 🔲 Not started |
