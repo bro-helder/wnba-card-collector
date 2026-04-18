@@ -1,8 +1,8 @@
 # WNBA Card Collector — Product Requirements Document
 
-**Version:** 0.1 (Living Document)
+**Version:** 0.2 (Living Document)
 **Owner:** Brook
-**Last Updated:** April 17, 2026
+**Last Updated:** April 17, 2026 (Phase 2 complete)
 **Stack:** Next.js · Supabase · Vercel · Claude Vision API · eBay API · Resend
 **Companion Docs:** `styling-guidelines.md` (UI/UX, design tokens, component patterns)
 
@@ -138,8 +138,8 @@ Built for one user initially, with multi-user architecture in place from the sta
     ┌────────────▼──┐    ┌───────▼──────────┐
     │  Claude API   │    │    eBay APIs      │
     │  Vision       │    │  Browse API       │
-    │  claude-3-5   │    │  Finding API      │
-    │  -sonnet      │    │  (sold comps)     │
+    │  claude-      │    │  Finding API      │
+    │  sonnet-4-6   │    │  (sold comps)     │
     └───────────────┘    └──────────────────┘
                                   │
                          ┌────────▼─────────┐
@@ -154,7 +154,7 @@ Built for one user initially, with multi-user architecture in place from the sta
 |----------|--------|-----------|
 | Frontend framework | Next.js App Router | Vercel-native, RSC for performance, mobile-responsive |
 | Scan flow (MVP) | One card at a time | Faster to ship; batch deferred |
-| AI model | claude-3-5-sonnet | Best vision + instruction following |
+| AI model | claude-sonnet-4-6 | Best vision + instruction following at time of build |
 | Email | Resend | Free tier, Edge Function friendly, React Email support |
 | Auth | Supabase + Google OAuth | Existing familiarity, frictionless on mobile |
 | Storage | Supabase Storage | Scan image retention, same auth context |
@@ -591,7 +591,7 @@ Store in Supabase Vault / environment variables. Never expose in client.
 1. Call eBay Browse API `search` with constructed query
 2. Filter to Buy It Now listings (exclude pure auctions to avoid noise from artificially low starting bids)
 3. Return up to 10 current listings sorted by price ascending
-4. Cache results in `ebay_comps` table with 4hr TTL
+4. Cache results in `ebay_comps` table with 24hr TTL
 5. Display: current price, listing title, seller, link — in a bottom sheet modal
 
 **What this is good for:** Quickly seeing what comparable cards are listed at right now, useful for pricing decisions before selling or checking if a want list card is available.
@@ -748,17 +748,42 @@ Bottom tab bar with 5 items:
 
 **Goal:** Photograph a card → AI identifies it → confirm → collection
 
-- [ ] Supabase Storage bucket for card images
-- [ ] Image upload from camera/photo picker
-- [ ] Stage 1 Edge Function (Claude Vision — card identity)
-- [ ] Stage 2 Edge Function (Claude Vision — parallel classification)
-- [ ] Serial number detection + candidate filtering logic
-- [ ] Scan confirmation UI (top 3 candidates, confidence, reasoning)
-- [ ] Confirm → write to collection
-- [ ] "None of these" → manual entry fallback
-- [ ] Scan session logging
+- [x] Supabase Storage bucket for card images
+- [x] Image upload from camera/photo picker (front + back supported)
+- [x] Stage 1 Edge Function (Claude Vision — card identity)
+- [x] Stage 2 Edge Function (Claude Vision — parallel classification)
+- [x] Serial number detection + candidate filtering logic
+- [x] Scan confirmation UI (top 3 candidates, confidence, reasoning)
+- [x] Confirm → write to collection
+- [x] Auto-create set/card on confirm when not in checklist (flagged needs_review)
+- [x] "None of these" → manual entry fallback
+- [x] Scan session logging
 
 **Done when:** You can scan a card, see AI candidates, confirm, and it appears in your collection.
+
+**Status: ✅ Complete** — Committed April 17, 2026. Pending: apply migrations + deploy Edge Functions against Supabase project.
+
+---
+
+### Phase 2.5 — Checklist Management
+
+**Goal:** Build reference data (sets, parallels, cards) so Stage 2 AI has training data for parallel classification. Populate with first set to enable full Phase 2 smoke testing.
+
+**Why Phase 2.5 before Phase 3?** Without parallel reference data, Stage 2 classification has no candidates to match against. Phase 2.5 ensures the full scan pipeline (Stage 1 → Stage 2 → confirm) works end-to-end before building Want List + Goals.
+
+- [ ] Admin/Checklist page layout: Tailwind scaffold with realistic structure (no placeholder text)
+- [ ] Set management UI: create set (name, year, manufacturer), list sets
+- [ ] Parallel management UI: add/edit parallels per set with visual descriptors (color, finish, print run, notes)
+- [ ] Card management UI: add/edit cards individually per set
+- [ ] CSV import for cards (simple format: `card_number,player_name,team,rookie_card`)
+- [ ] Beckett Master Sheet import (.xlsx parsing for Prizm sets)
+  - Parse `Card Set` field to extract insert name + parallel name
+  - Parse `Sequence` field for print run detection
+  - Upsert sets/parallels/cards in bulk
+- [ ] Bulk load: 2024 Panini Prizm WNBA (first reference set for testing)
+- [ ] Verify Stage 2 classification works with populated parallels
+
+**Done when:** You can import a checklist (e.g., 2024 Panini Prizm WNBA), see parallels available in the DB, and full scan pipeline executes through Stage 2.
 
 ---
 
@@ -858,6 +883,13 @@ Bottom tab bar with 5 items:
 | 12 | Checklist import | Primary format: Beckett Master sheet (.xlsx). Card Set field parsed to extract insert + parallel. | April 2026 |
 | 13 | Scan confirmation UX | Fields are editable on confirmation screen before committing to collection | April 2026 |
 | 14 | Styling | Maintained in separate `styling-guidelines.md` — reference for all UI/UX decisions in Claude Code | April 2026 |
+| 15 | Scan image transport | Images sent to Edge Functions as inline base64 in request body, not downloaded from Storage. Storage upload is fire-and-forget for permanent record only. Removes Storage as a dependency for the AI pipeline. | April 2026 |
+| 16 | Edge Function HTTP status | All Edge Functions return HTTP 200. Errors are returned as `{ error: "..." }` in the JSON body. Supabase `functions.invoke` drops the response body on non-2xx status codes, making errors invisible. | April 2026 |
+| 17 | Auto-create checklist entries | When a card confirmed from scan is not in the checklist, the confirm route creates the set + card automatically and flags them `needs_review = true`. This ensures no card is ever blocked from collection entry. | April 2026 |
+| 18 | Front + back image capture | Both front and back images are supported throughout the pipeline. Stage 1 and Stage 2 prompts use back image when present for better card number, serial, and year detection. | April 2026 |
+| 19 | Scan image size limit | Client enforces 750KB max before base64 conversion. Supabase Edge Function payload limit is ~1MB; base64 overhead (~33%) means 750KB raw → ~1MB encoded. No server-side resize in MVP. | April 2026 |
+| 20 | Checklist management timing | Phase 2.5 (separate mini-phase) inserted between Phase 2 and Phase 3. Ensures Stage 2 parallel classification has reference data to match against before building Want List + Goals. | April 2026 |
+| 20 | UI/UX scaffolding strategy (Phase 2.5+) | **Option C: Hybrid Smart Scaffold.** Each page/feature stub is built with realistic Tailwind structure (card layouts, grids, spacing) — no placeholder text. Component patterns from earlier phases are reused (e.g., Field, StatusBadge, MotionCard). `// TODO: implement X` comments mark incomplete sections. Maintains visual consistency without design overhead; enables fast iteration while preventing design debt. Reference `styling-guidelines.md` religiously. | April 2026 |
 
 ---
 

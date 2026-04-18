@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/brook/CascadeProjects/WNBA-CARDS/**)",
+      "Bash(grep -v \",$\" \"/c/Users/brook/CascadeProjects/WNBA-CARDS/2024 WNBA Panini Prizm.csv\")",
+      "Bash(grep -v \",,$\\\\|,$\" \"/c/Users/brook/CascadeProjects/WNBA-CARDS/2024 WNBA Panini Prizm.csv\")",
+      "Bash(node *)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}

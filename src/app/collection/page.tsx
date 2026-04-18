@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { SectionShell } from '@/components/SectionShell';
 import type { Session } from '@supabase/supabase-js';
@@ -208,6 +209,11 @@ export default function CollectionPage() {
     <SectionShell
       title="Collection"
       description="Browse your owned cards and add new cards manually to validate Supabase connectivity."
+      action={
+        <Link href="/checklist" className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700">
+          Manage Checklists
+        </Link>
+      }
     >
       <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
         <div className="space-y-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-glow">

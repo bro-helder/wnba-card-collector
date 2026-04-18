@@ -4,6 +4,50 @@
 
 ---
 
+## Session: April 17, 2026 — Phase 2 · Code Review + Pre-Commit Fixes
+
+### Completed This Session
+- Ran `/review` against full Phase 2 diff — no PRs open, reviewed local uncommitted changes
+- Fixed all HIGH/MEDIUM findings before committing:
+  - **[HIGH] Image size guard**: Added 750KB limit in `handleFileSelected` before base64 conversion;
+    user sees a clear error message. Rationale: Supabase Edge Function payload limit ~1MB;
+    base64 overhead is ~33%, so 750KB raw → ~1MB encoded is the safe ceiling.
+  - **[MEDIUM] Double-submit on confirm button**: Added `confirming` state; confirm button disabled
+    with spinner while the `/api/scan/confirm` request is in flight. Matches the pattern
+    `ManualEntryForm` already used for its submit button.
+  - **[MEDIUM/LOW] Object URL leak**: `URL.revokeObjectURL` now called in `handleFileSelected`
+    (when replacing a previously selected image) and in `reset()` (on scan-another / back).
+- Replaced deprecated `SpinnerGap` with `CircleNotch` (Phosphor v2 rename); updated all 3 usages.
+- `npx tsc --noEmit` passes clean after all changes.
+- Committed all Phase 2 work as single commit `cd239de`.
+
+### Phase Checklist Updates
+- [x] Pre-commit review findings addressed
+- [x] Image size enforcement (750KB, with user-facing error)
+- [x] Double-submit guard on confirm
+- [x] Object URL cleanup
+- [x] Deprecated icon replaced
+
+### Decisions Made
+- 750KB image cap chosen over a resizing step to keep the client simple for MVP; resizing can be added in Phase 6 polish if users complain.
+- Single commit for all Phase 2 work (rather than splitting review fixes): patch set is small and logically tied to the same feature.
+
+### In-Flight / Partially Done
+- None
+
+### Blockers / Open Questions
+- Remaining MEDIUM (CORS wildcard on Edge Functions): acceptable for MVP, tighten when Vercel domain is known.
+- Three migrations still need to be applied: 00001, 00002, 00003
+- Edge Functions must be deployed: `supabase functions deploy scan-stage1 scan-stage2`
+
+### Next Session: Start Here
+- Apply all three Phase 2 migrations against the Supabase project
+- Deploy Edge Functions
+- Smoke test: photograph a card → Stage 1 → Stage 2 → confirm → verify collection entry + needs_review flag
+- Begin Phase 3: Want List & Goals
+
+---
+
 ## Session: April 17, 2026 — Phase 2 · Bug Fixes + Auto-Create + Front/Back Support
 
 ### Completed This Session
@@ -203,6 +247,76 @@
 - claude-progress.txt (this file)
 
 ---
+
+## Session: April 18, 2026 — Phase 2.5 · Checklist Management
+
+### Completed This Session
+- Built full checklist management feature (Phase 2.5)
+- Created `/checklist` page with two tabs: Sets list + Import CSV
+  - Sets list: grouped by year, shows card/parallel counts per set, links to detail
+  - Import tab: file picker, form fields (set name, year, manufacturer), result summary with error list
+- Created `/checklist/[setId]` page with two tabs: Parallels + Cards
+  - Parallels tab: color-coded badges using parallel color system from styling-guidelines.md, print run display
+  - Cards tab: searchable/paginated table (50 per page), player name + card number + team + RC indicator
+  - Both tabs have "Add" modals for manual entry
+- Built API routes:
+  - `GET/POST /api/checklist/sets` — list all sets with counts, create set
+  - `GET/PATCH /api/checklist/sets/[setId]` — set detail with parallels + cards
+  - `POST/PATCH /api/checklist/sets/[setId]/parallels` — create/update parallel
+  - `GET/POST /api/checklist/sets/[setId]/cards` — paginated cards, create card
+  - `POST /api/checklist/import` — bulk CSV import (Beckett format)
+- Built CSV import pipeline:
+  - Parses Beckett-format CSV (Card Set, Card Number, Athlete, Team, Sequence)
+  - Greedy shortest-match root insert detection — correctly handles "Clark-Mania! Gold Vinyl"
+    as insert=Clark-Mania!, parallel=Gold Vinyl (not a separate insert)
+  - Creates one `sets` row per insert (Base → "2024 Panini Prizm WNBA",
+    Fearless → "2024 Panini Prizm WNBA — Fearless", etc.)
+  - Extracts all unique parallels per insert with print_run + is_numbered from Sequence field
+  - Deduplicates cards by card_number within each insert-set
+  - Inserts in 200-row batches; returns counts + any per-batch errors
+  - Handles repeated imports (skip-if-exists for sets, parallels, cards)
+- Added migration `20260418000001_parallels_write_policy.sql`: write RLS policy for parallels
+  (init migration only added SELECT; import pipeline needs INSERT)
+- Added "Manage Checklists" link to Collection page header
+- `npx tsc --noEmit` passes clean
+
+### CSV Parsing Details
+- 6,702 rows in 2024 Prizm CSV → 12 inserts, 12–33 parallels each
+- Insert detection: greedy shortest-match algorithm on non-Prizms Card Set values
+- Sequence parsing: "/99" → print_run=99, "1/1" → print_run=1
+
+### Phase Checklist Updates
+- [x] Admin/Checklist page layout with Sets + Import tabs
+- [x] Set management UI (create, list, detail)
+- [x] Parallel management UI (add parallel per set)
+- [x] Card management UI (add card, paginated search)
+- [x] CSV import (Beckett format — primary format)
+- [x] RLS policy for parallels write
+
+### Decisions Made
+- One `sets` DB row per insert (not per product) — keeps unique(set_id, card_number) clean
+  and matches how Stage 1 AI would identify cards by insert name.
+- Base insert uses the provided set name directly; others get " — InsertName" suffix.
+- Greedy shortest-match root detection prevents false positives like "Clark-Mania! Gold" as root.
+- No XLSX support in this phase — CSV import sufficient for Beckett data exported to CSV.
+
+### In-Flight / Partially Done
+- Parallel descriptors (color, finish, notes) populated structurally but empty — need manual fill
+  or a follow-up seed pass from PRD Appendix A data
+- Bulk load of 2024 Prizm CSV not yet executed against Supabase (migration 00001 still pending)
+
+### Blockers / Open Questions
+- Three migrations still need to be applied: 00001, 00002, 00003, and new 20260418000001
+- Edge Functions still need to be deployed
+
+### Next Session: Start Here
+- Apply all four migrations against the Supabase project
+- Deploy Edge Functions: `supabase functions deploy scan-stage1 scan-stage2`
+- Import 2024 Prizm CSV via /checklist → Import tab
+- Verify Stage 2 classification works with populated parallels
+- Begin Phase 3: Want List & Goals
+
+---
 <!-- PASTE ADDITIONAL SESSIONS ABOVE THIS LINE -->
 ---
 
@@ -213,6 +327,7 @@
 |-------|------|--------|
 | 1 | Manual collection management | ✅ Complete |
 | 2 | Scan pipeline | ✅ Complete |
+| 2.5 | Checklist management | ✅ Complete |
 | 3 | Want list + goals | 🔲 Not started |
 | 4 | eBay alerts + comps | 🔲 Not started |
 | 5 | eBay listing helper | 🔲 Not started |
