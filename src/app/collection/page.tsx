@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CardArt, type CardData } from '@/components/CardArt';
@@ -50,6 +50,10 @@ function condShort(cond: string | null): 'MT' | 'NM' | 'EX' {
   return 'EX';
 }
 
+function isHit(c: CollectionCard): boolean {
+  return c.serial !== null || (PARALLELS[c.parallel].run !== undefined && PARALLELS[c.parallel].run! <= 99);
+}
+
 function mapRow(row: DBCollectionRow): CollectionCard {
   const card = row.cards;
   const set = card?.sets;
@@ -68,6 +72,7 @@ function mapRow(row: DBCollectionRow): CollectionCard {
     cond: condShort(row.condition),
     cost: row.cost_paid ?? 0,
     date: row.acquisition_date ?? row.id,
+    // TODO: add favorites column to collection table
     fav: false,
   };
 }
@@ -324,6 +329,18 @@ export default function CollectionPage() {
   const [search, setSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
 
+  const loadCollection = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('collection')
+      .select('id,serial_number,condition,cost_paid,acquisition_date,notes,cards(player_name,team,card_number,rookie_card,sets(name,year)),parallels(name,print_run)')
+      .order('acquisition_date', { ascending: false });
+
+    setLoading(false);
+    // TODO: regenerate database.types.ts when schema stabilises to replace this cast
+    if (data) setCards((data as unknown as DBCollectionRow[]).map(mapRow));
+  }, []);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
@@ -333,18 +350,7 @@ export default function CollectionPage() {
       if (!session) router.push('/login');
     });
     return () => subscription.unsubscribe();
-  }, [router]);
-
-  async function loadCollection() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('collection')
-      .select('id,serial_number,condition,cost_paid,acquisition_date,notes,cards(player_name,team,card_number,rookie_card,sets(name,year)),parallels(name,print_run)')
-      .order('acquisition_date', { ascending: false });
-
-    setLoading(false);
-    if (data) setCards((data as unknown as DBCollectionRow[]).map(mapRow));
-  }
+  }, [router, loadCollection]);
 
   const filtered = useMemo(() => {
     let r = cards;
@@ -353,7 +359,7 @@ export default function CollectionPage() {
       const p = PARALLELS[c.parallel];
       return p.run !== undefined && p.run <= 25;
     });
-    if (filter === 'hits') r = r.filter(c => c.cost > 200);
+    if (filter === 'hits') r = r.filter(isHit);
     if (search.trim()) {
       const q = search.toLowerCase();
       r = r.filter(c =>
@@ -366,7 +372,7 @@ export default function CollectionPage() {
   }, [cards, filter, search]);
 
   const totalValue = filtered.reduce((s, c) => s + c.cost, 0);
-  const hitsCount = filtered.filter(c => { const p = PARALLELS[c.parallel]; return p.run !== undefined && p.run <= 25; }).length;
+  const hitsCount = cards.filter(isHit).length;
 
   const [feature, ...rest] = filtered;
 
@@ -459,7 +465,7 @@ export default function CollectionPage() {
             <FilterChip label="All"      active={filter === 'all'}     count={cards.length}                          onClick={() => setFilter('all')} />
             <FilterChip label="Rookies"  active={filter === 'rookies'} count={cards.filter(c => c.rookie).length}    onClick={() => setFilter('rookies')} />
             <FilterChip label="Premium"  active={filter === 'premium'} count={cards.filter(c => { const p = PARALLELS[c.parallel]; return p.run !== undefined && p.run <= 25; }).length} onClick={() => setFilter('premium')} />
-            <FilterChip label="Big Hits" active={filter === 'hits'}    onClick={() => setFilter('hits')} />
+            <FilterChip label="Big Hits" active={filter === 'hits'}    count={cards.filter(isHit).length} onClick={() => setFilter('hits')} />
           </div>
           <div style={{ display: 'flex', gap: 2, marginLeft: 8, flexShrink: 0 }}>
             <ViewBtn mode="grid"  current={view} onClick={() => setView('grid')}  icon="⊞" />

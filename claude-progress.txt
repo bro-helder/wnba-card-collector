@@ -317,6 +317,70 @@
 - Begin Phase 3: Want List & Goals
 
 ---
+
+## Session: April 19, 2026 — UI/UX Design Implementation
+
+### Completed This Session
+- Fetched and extracted the claude.ai/design bundle (tar.gz) — 6 screen prototypes + chat transcripts
+- Read all design files: CardArt.jsx, CollectionScreen.jsx, ScanScreen.jsx, CardDetailScreen.jsx,
+  WantListScreen.jsx, GoalsScreen.jsx, EbayListingsSheet.jsx, Chrome.jsx, data.js, styles.css
+- Implemented hi-fi WNBA UI across the entire app:
+
+**New files:**
+- `src/lib/cardData.ts` — TEAMS (15 franchises) + PARALLELS (11 types) constants;
+  `nameToParallelKey()` maps Supabase parallel name strings → CardArt keys
+- `src/components/CardArt.tsx` — Visual card component: team-color gradient faces,
+  holographic sweep overlay, rainbow/mojo/shimmer parallel treatments,
+  photographed-card presentation (cast shadow + top-edge reflection)
+- `src/components/ParallelBadge.tsx` — Animated parallel pill badges (mojo-gradient,
+  rainbow animated, shimmer sweep, color-coded per parallel)
+
+**Updated files:**
+- `src/styles/globals.css` — Added card animation keyframes: rainbow-border, holo-sweep,
+  mojo-shift, shimmer-sweep, tilt-card hover (perspective rotateX/Y), alertPulse
+- `src/components/BottomNav.tsx` — Redesigned to 4-tab layout (Collection, Want List,
+  Scan FAB, Goals); orange Scan button elevated with glow shadow, matching design exactly.
+  Removed eBay from nav (deprioritized for MVP)
+- `src/app/collection/page.tsx` — Full redesign: "The Vault" header with BR avatar,
+  stat strip (cards / value / hits), search bar, filter chips (All/Rookies/Premium/Big Hits),
+  grid/list/stack view toggle; all wired to real Supabase data via updated query
+- `src/app/want-list/page.tsx` — Full WantList redesign: animated alert strip,
+  price-progress bars, priority dots, in-range highlighting; mock data (backend TBD)
+- `src/app/goals/page.tsx` — Full Goals redesign: rainbow chase featured tile
+  with color swatch slots, SVG progress rings; mock data (backend TBD)
+- `src/app/page.tsx` — Redirects to /collection
+
+**Build:** `npm run build` passes clean; all 16 routes compile.
+
+### Design → Code Mapping
+- Collection page maps Supabase DB rows to CardData shape:
+  `parallel_id → parallels.name → nameToParallelKey()` → visual treatment
+- DB fields used: serial_number, condition, cost_paid, acquisition_date,
+  cards(player_name, team, card_number, rookie_card, sets(name, year)), parallels(name, print_run)
+
+### Decisions Made
+- CardArt uses inline CSS (not Tailwind) to match design pixel-for-pixel — the animations
+  and gradients require dynamic values that Tailwind can't express cleanly at runtime.
+- eBay tab removed from BottomNav to match design (Phase 4 feature, not MVP nav item).
+- Want List and Goals use mock data from design prototype — real Supabase backend is Phase 3/4 work.
+- Home page (`/`) redirects to `/collection` per the design's mental model.
+
+### In-Flight / Partially Done
+- Card Detail screen not yet implemented (design file: CardDetailScreen.jsx)
+- Scan page visual enhancement deferred (logic works; styling is functional but not design-polished)
+- eBay page not yet redesigned
+
+### Blockers / Open Questions
+- Same as previous session: migrations + Edge Functions still need to be applied/deployed
+
+### Next Session: Start Here
+- Apply all pending migrations and deploy Edge Functions (prerequisite for real scan flow)
+- Implement Card Detail screen (CardDetailScreen.jsx in design bundle)
+- Wire real Supabase data to Want List (want_list table exists in schema)
+- Wire real Supabase data to Goals (no table yet — needs schema design)
+- Visual polish on Scan page to match ScanScreen.jsx design
+
+---
 <!-- PASTE ADDITIONAL SESSIONS ABOVE THIS LINE -->
 ---
 
@@ -328,7 +392,8 @@
 | 1 | Manual collection management | ✅ Complete |
 | 2 | Scan pipeline | ✅ Complete |
 | 2.5 | Checklist management | ✅ Complete |
-| 3 | Want list + goals | 🔲 Not started |
+| 2.6 | UI/UX design implementation | ✅ Complete |
+| 3 | Want list + goals (backend) | 🔲 Not started |
 | 4 | eBay alerts + comps | 🔲 Not started |
 | 5 | eBay listing helper | 🔲 Not started |
 | 6 | PWA + polish | 🔲 Not started |
