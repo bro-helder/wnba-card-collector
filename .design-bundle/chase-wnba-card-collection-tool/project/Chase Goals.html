@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Chase — Goals</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', -apple-system, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="CardArt.jsx"></script>
+<script type="text/babel" src="Chrome.jsx"></script>
+<script type="text/babel" src="EbayListingsSheet.jsx"></script>
+<script type="text/babel" src="GoalsScreen.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+function FixedBottomNav({ active }) {
+  return (
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 40 }}>
+      <BottomNav active={active} />
+    </div>
+  );
+}
+window.FixedBottomNav = FixedBottomNav;
+
+function Screen({ label, children, note }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <DCArtboard label={label} width={402} height={874} style={{
+        background: '#000', borderRadius: 48,
+        boxShadow: '0 30px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)',
+      }}>
+        <IOSDevice dark={true} width={402} height={874}>
+          {children}
+        </IOSDevice>
+      </DCArtboard>
+      {note && (
+        <div style={{
+          position: 'absolute', top: -44, right: 0, width: 220,
+          fontSize: 11, color: 'rgba(60,50,40,0.7)',
+          fontStyle: 'italic', textAlign: 'right', lineHeight: 1.4,
+        }}>{note}</div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas bg="#f0eee9" minZoom={0.15} maxZoom={2.5} initialZoom={0.45}>
+      <div style={{ padding: '60px 80px', minWidth: 3200 }} data-screen-label="Chase · Goals">
+        <div style={{ marginBottom: 48 }}>
+          <div style={{
+            fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800,
+            fontSize: 52, letterSpacing: -1, color: '#1a1814',
+          }}>Goals — the progress wall</div>
+          <div style={{
+            fontSize: 13, color: 'rgba(60,50,40,0.65)', marginTop: 4,
+            fontWeight: 500,
+          }}>Rainbow chases, team sets, player PCs, rookie classes — long-running collection projects with visual progress.</div>
+        </div>
+
+        <DCSection title="A · Overview + detail" subtitle="Wall of chases, then drill into one.">
+          <Screen label="A1 · All goals"
+            note="Featured rainbow at top with every parallel as a swatch (empty = dashed slot). Compact list below with progress rings.">
+            <GoalsScreen state="default" />
+          </Screen>
+          <Screen label="A2 · Rainbow detail"
+            note="Every parallel listed with owned state, print run, market price. Missing ones get 'Add to wants'.">
+            <GoalsScreen state="detail" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="B · Set build (new goal type, per Brook)" subtitle="Complete every card in a base set or insert set. Canonical set-building UX — a card-number grid you fill in.">
+          <Screen label="B1 · Set detail — base set"
+            note="100 slots for a 100-card base set. Owned numbers lit, missing ones dashed. 'Cheapest missing' block surfaces cheap pickups to close gaps fast.">
+            <GoalsScreen state="setBuild" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="C · Moments + creation" subtitle="The celebration at the end of a chase, and the flow to start a new one.">
+          <Screen label="C1 · Chase complete"
+            note="Full-screen celebration when the last parallel lands. 11 swatches all lit, stats, share button.">
+            <GoalsScreen state="celebrate" />
+          </Screen>
+          <Screen label="C2 · Create a goal — now 6 types"
+            note="Added 'Complete a set' (base or insert) as a first-class archetype. Works for base, inserts, and numbered inserts.">
+            <GoalsScreen state="create" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="D · eBay integration" subtitle="Manual 'Check eBay' fetch — prices are only pulled on tap. Every listing shows when it was last fetched.">
+          <Screen label="D1 · Listings sheet with fetch timestamp"
+            note="No constant polling. Tap 'Check eBay' → sheet populates + shows 'Prices from Today · 2:14 PM'. Refresh button always visible.">
+            <GoalsScreen state="detailSheet" />
+          </Screen>
+        </DCSection>
+
+        <div style={{ padding: '0 60px', marginTop: -20, marginBottom: 60, position: 'relative' }}>
+          <DCPostIt top={-10} left={60} rotate={-3} width={260}>
+            Rainbow chases get the hero treatment — the 11-swatch strip is the logo. Empty slots are dashed outlines in the parallel's actual color so you always see what's missing.
+          </DCPostIt>
+          <DCPostIt top={-10} right={80} rotate={2} width={240}>
+            Every goal card has a progress ring in the accent color of its type. Team set = team primary, PC = player's team, rainbow = orange/gold gradient.
+          </DCPostIt>
+          <DCPostIt top={130} left={140} rotate={1.5} width={280}>
+            <b>Re: constant APIs →</b> we don't. Prices only fetch on explicit tap (big orange "Check eBay" button). Every sheet shows "Prices from Today · 2:14 PM" so the staleness is legible. No background polling.
+          </DCPostIt>
+          <DCPostIt top={150} right={120} rotate={-2} width={260}>
+            <b>Re: "9:41" →</b> that's the iOS device-frame status bar. It's just iOS chrome (signal/wifi/battery) — a standard design-prototype convention. Apple uses 9:41 in all its marketing. Not part of our UI; can be hidden in review.
+          </DCPostIt>
+        </div>
+      </div>
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

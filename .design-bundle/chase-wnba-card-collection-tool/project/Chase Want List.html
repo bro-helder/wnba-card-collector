@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Chase — Want List</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', -apple-system, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="CardArt.jsx"></script>
+<script type="text/babel" src="Chrome.jsx"></script>
+<script type="text/babel" src="EbayListingsSheet.jsx"></script>
+<script type="text/babel" src="WantListScreen.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+function FixedBottomNav({ active }) {
+  return (
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 40 }}>
+      <BottomNav active={active} />
+    </div>
+  );
+}
+window.FixedBottomNav = FixedBottomNav;
+
+function Screen({ label, children, note }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <DCArtboard label={label} width={402} height={874} style={{
+        background: '#000', borderRadius: 48,
+        boxShadow: '0 30px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)',
+      }}>
+        <IOSDevice dark={true} width={402} height={874}>
+          {children}
+        </IOSDevice>
+      </DCArtboard>
+      {note && (
+        <div style={{
+          position: 'absolute', top: -44, right: 0, width: 220,
+          fontSize: 11, color: 'rgba(60,50,40,0.7)',
+          fontStyle: 'italic', textAlign: 'right', lineHeight: 1.4,
+        }}>{note}</div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas bg="#f0eee9" minZoom={0.15} maxZoom={2.5} initialZoom={0.45}>
+      <div style={{ padding: '60px 80px', minWidth: 3200 }} data-screen-label="Chase · Want List">
+        <div style={{ marginBottom: 48 }}>
+          <div style={{
+            fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800,
+            fontSize: 52, letterSpacing: -1, color: '#1a1814',
+          }}>Want List — the trophy case of things you don't own yet</div>
+          <div style={{
+            fontSize: 13, color: 'rgba(60,50,40,0.65)', marginTop: 4,
+            fontWeight: 500,
+          }}>Price alerts fire when market drops into your target. Set-builder view tracks rainbow runs.</div>
+        </div>
+
+        <DCSection title="A · Default + alerts" subtitle="Main browsing view. Alert strip surfaces cards where last-checked price dropped in-range. Every row shows when prices were last fetched.">
+          <Screen label="A1 · Default"
+            note="Each row shows 'Checked 2h ago' bottom-right. Tap opens the listings sheet and lets you refresh. No auto-polling.">
+            <WantListScreen state="default" />
+          </Screen>
+          <Screen label="A2 · Price alerts only"
+            note="Filtered to cards where last-checked price ≤ target. Every row shows 'Check eBay' + last-checked timestamp.">
+            <WantListScreen state="alerts" />
+          </Screen>
+          <Screen label="A3 · Rainbow chase"
+            note="Scoped to a single set-build goal. Progress footer shows colors collected.">
+            <WantListScreen state="set" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="B · Zero + add flow" subtitle="Onboarding and the add-a-want flow.">
+          <Screen label="B1 · Empty state"
+            note="First-time user. Playful '?' placeholder card, clear CTA, no noise.">
+            <WantListScreen state="empty" />
+          </Screen>
+          <Screen label="B2 · Add flow — pick parallel"
+            note="Search resolved. Pick which parallel you're chasing. Target price slider at the bottom.">
+            <WantListScreen state="add" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="C · eBay integration (per Brook: manual fetch, not 'live')" subtitle="No background polling. Prices only fetch on an explicit 'Check eBay' tap. Every listing view shows when the data was last fetched.">
+          <Screen label="C1 · Option A — Listings sheet"
+            note="Tap 'Checked 2h ago' badge → sheet. Big 'Check eBay' CTA top-right. Timestamp 'Prices from Today · 2:14 PM' pins the staleness. 'Refresh' re-fetches manually.">
+            <WantListScreen state="listingsSheet" />
+          </Screen>
+          <Screen label="C2 · Option B — Inline top-3 strip"
+            note="Top 3 cheapest shown inline from the last manual fetch. Strip header says 'last checked 2h ago · tap to refresh'. No auto-polling.">
+            <WantListScreen state="inlineStrip" />
+          </Screen>
+        </DCSection>
+
+        <div style={{ padding: '0 60px', marginTop: -20, marginBottom: 60, position: 'relative' }}>
+          <DCPostIt top={-10} left={60} rotate={-3} width={260}>
+            Progress bars are two-tone: blue = still chasing, orange (with glow) = now in range. A 2sec glance tells you "which of my wants can I actually buy today?"
+          </DCPostIt>
+          <DCPostIt top={-10} right={80} rotate={2} width={240}>
+            Priority dot + note + target price together form the "why I want this" mini-journal. Collectors build attachment to the chase, not just the card.
+          </DCPostIt>
+          <DCPostIt top={140} left={120} rotate={2} width={290}>
+            <b>Re: serial numbers →</b> fixed. Wants now show only the print-run max (e.g. "/49" instead of "32/49"). The exact copy number gets assigned when you actually land one; until then it's a range, not a specific card.
+          </DCPostIt>
+          <DCPostIt top={160} right={100} rotate={-2} width={270}>
+            <b>Re: "9:41" →</b> iOS status bar from the device frame. Standard design-prototype chrome (same time Apple uses in every iPhone ad). Not part of our UI.
+          </DCPostIt>
+        </div>
+      </div>
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

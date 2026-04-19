@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${barlowCondensed.variable} ${inter.variable}`}>
       <body className="min-h-screen bg-[#0A0A0B] text-[#F5F5F7]">
-        <div className="min-h-screen pb-28">
+        <div className="min-h-screen" style={{ paddingBottom: 82 }}>
           {children}
           <BottomNav />
         </div>

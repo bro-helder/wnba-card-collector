@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WNBA Team Gradient System — Chase</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  html, body { background: #0A0A0B; color: #E8E8EF; font-family: 'Inter', sans-serif; margin: 0; }
+  .page { max-width: 1280px; margin: 0 auto; padding: 64px 48px 120px; }
+
+  .eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+    color: #FF4713; font-size: 13px;
+  }
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800; font-size: 64px; line-height: 1.02;
+    letter-spacing: -1px; margin: 8px 0 24px;
+  }
+  .lede { color: #9B9BA8; font-size: 17px; line-height: 1.55; max-width: 680px; margin: 0 0 12px; }
+  .lede b { color: #E8E8EF; font-weight: 600; }
+
+  .meta {
+    display: flex; gap: 24px; margin-top: 28px; padding-top: 24px;
+    border-top: 1px solid #1f1f26;
+    font-size: 12px; color: #6b6b78;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .meta span b { color: #9B9BA8; font-weight: 600; }
+
+  /* Recipe / anatomy section */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 32px; letter-spacing: -0.3px;
+    margin: 80px 0 6px;
+  }
+  h2 .num { color: #FF4713; margin-right: 12px; }
+  .section-sub { color: #9B9BA8; font-size: 15px; margin: 0 0 32px; max-width: 680px; }
+
+  .anatomy {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 40px;
+    background: #111115;
+    border: 1px solid #1f1f26;
+    border-radius: 12px;
+    padding: 32px;
+  }
+  .anatomy-card-frame { width: 100%; }
+  .anatomy-notes { display: flex; flex-direction: column; gap: 18px; }
+  .a-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; font-size: 14px; }
+  .a-row .lbl {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase; color: #6b6b78; padding-top: 2px;
+  }
+  .a-row .val { color: #E8E8EF; line-height: 1.5; }
+  .a-row .val code {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: #0A0A0B; border: 1px solid #1f1f26;
+    padding: 2px 6px; border-radius: 4px; color: #E8E8EF;
+  }
+
+  /* Team grid */
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 12px;
+  }
+  .team-card {
+    background: #111115;
+    border: 1px solid #1f1f26;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .team-card:hover { transform: translateY(-2px); border-color: #2a2a33; }
+
+  .tc-hero {
+    height: 120px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tc-hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.5) 100%);
+  }
+  .tc-hero .monogram {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800; font-size: 72px;
+    color: rgba(255,255,255,0.92);
+    letter-spacing: 2px; line-height: 1;
+    text-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    z-index: 1;
+  }
+
+  .tc-body { padding: 18px 20px 20px; }
+  .tc-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 20px; letter-spacing: 0.2px;
+    color: #E8E8EF; line-height: 1.1;
+  }
+  .tc-recipe {
+    font-size: 12px; color: #9B9BA8; margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tc-swatches {
+    display: flex; gap: 8px; margin-top: 14px;
+  }
+  .sw {
+    flex: 1;
+    height: 36px;
+    border-radius: 6px;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: transform .15s;
+  }
+  .sw:hover { transform: scale(1.04); }
+  .sw-hex {
+    position: absolute;
+    bottom: -18px; left: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #6b6b78;
+    letter-spacing: 0.5px;
+  }
+  .tc-card-sample {
+    margin: 40px auto 0;
+    width: 72%;
+  }
+
+  /* Copied toast */
+  .toast {
+    position: fixed; bottom: 32px; left: 50%;
+    transform: translate(-50%, 40px); opacity: 0;
+    background: #1f1f26; color: #E8E8EF;
+    padding: 10px 16px; border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    border: 1px solid #2a2a33;
+    transition: transform .25s ease, opacity .25s ease;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+  /* Usage rules */
+  .rules {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .rule {
+    background: #111115;
+    border: 1px solid #1f1f26;
+    border-radius: 10px;
+    padding: 22px 22px 24px;
+  }
+  .rule .tag {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase;
+    display: inline-block;
+    padding: 2px 8px; border-radius: 3px;
+  }
+  .rule .tag.do    { color: #2ECC71; background: rgba(46,204,113,0.12); }
+  .rule .tag.careful { color: #FFC633; background: rgba(255,198,51,0.12); }
+  .rule .tag.dont  { color: #E74C3C; background: rgba(231,76,60,0.12); }
+  .rule h4 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 20px;
+    margin: 10px 0 6px; letter-spacing: 0.2px;
+  }
+  .rule p { margin: 0; font-size: 13px; line-height: 1.55; color: #9B9BA8; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="eyebrow">Chase · Design System</div>
+  <h1>WNBA Team Gradient System</h1>
+  <p class="lede">
+    Every card in Chase is rendered with a <b>team-centric gradient</b> — primary color
+    flowing into secondary, grounded to near-black. This doc captures the recipe for
+    all <b>15 active franchises</b> (including 2026 expansion teams Toronto Tempo and
+    Portland Fire) so card art stays consistent whether a collector pulls a Fever
+    rookie or a Valkyries 1/1.
+  </p>
+  <p class="lede" style="margin-top:16px;">
+    Authored in response to <b>Brook's comment</b> on Caitlin Clark IND RC #1. Updates
+    here flow directly into <code style="font-family:'JetBrains Mono',monospace;font-size:13px;background:#111115;padding:2px 6px;border-radius:4px;border:1px solid #1f1f26;">data.js → window.TEAMS</code> and re-render every card.
+  </p>
+  <div class="meta">
+    <span><b>Version</b> 1.1</span>
+    <span><b>Teams</b> 15 (all active WNBA)</span>
+    <span><b>Updated</b> for 2026 season · +TOR, +POR</span>
+  </div>
+
+  <!-- GRADIENT ANATOMY -->
+  <h2><span class="num">01</span>Gradient Anatomy</h2>
+  <p class="section-sub">
+    Every team gradient follows the same three-stop recipe. Only the colors and
+    angle change per team.
+  </p>
+  <div class="anatomy">
+    <div class="anatomy-card-frame" id="anatomy-card"></div>
+    <div class="anatomy-notes">
+      <div class="a-row">
+        <div class="lbl">Formula</div>
+        <div class="val">
+          <code>linear-gradient({angle}, {primary} 0%, {secondary} 60%, #0A0A0B 100%)</code>
+        </div>
+      </div>
+      <div class="a-row">
+        <div class="lbl">Stop 1</div>
+        <div class="val">
+          <b>Primary team color</b> — full saturation, sets the team's visual identity at the top of the card.
+        </div>
+      </div>
+      <div class="a-row">
+        <div class="lbl">Stop 2</div>
+        <div class="val">
+          <b>Secondary team color</b> at 60% — creates the mid-card transition and adds a secondary brand cue.
+        </div>
+      </div>
+      <div class="a-row">
+        <div class="lbl">Stop 3</div>
+        <div class="val">
+          <b>Chase black (#0A0A0B)</b> at 100% — grounds the card, gives the nameplate a legible base, and ties every team card to the same visual language.
+        </div>
+      </div>
+      <div class="a-row">
+        <div class="lbl">Angle</div>
+        <div class="val">
+          <code>145°–160°</code>. Default <code>155°</code>. Diagonal flow makes the card feel like it has direction. Teams with horizontal wordmarks (GSV, MIN) skew to 145°; teams with tall marks (LVA, PHX) skew to 160°.
+        </div>
+      </div>
+      <div class="a-row">
+        <div class="lbl">Parallel overrides</div>
+        <div class="val">
+          Base / Silver uses the straight team gradient. <b>Mojo</b>, <b>1/1</b>, <b>Gold Vinyl</b>, and tinted Ice parallels replace stops 1–2 with the parallel's own palette but keep the team's secondary as a tint layer.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM GRID -->
+  <h2><span class="num">02</span>Team Swatches</h2>
+  <p class="section-sub">
+    All 15 franchises, grouped by conference. Click any color swatch to copy the hex.
+    Every card uses a <b>Silver Prizm</b> sample so you can see the raw team gradient
+    with no parallel effects.
+  </p>
+  <h3 class="conf-heading" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;letter-spacing:2px;text-transform:uppercase;color:#9B9BA8;margin:8px 0 16px;">Eastern Conference</h3>
+  <div class="team-grid" id="team-grid-east"></div>
+  <h3 class="conf-heading" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;letter-spacing:2px;text-transform:uppercase;color:#9B9BA8;margin:48px 0 16px;">Western Conference</h3>
+  <div class="team-grid" id="team-grid-west"></div>
+
+  <!-- USAGE RULES -->
+  <h2><span class="num">03</span>Usage Rules</h2>
+  <p class="section-sub">
+    How to stay consistent when adding new teams, parallels, or treatments.
+  </p>
+  <div class="rules">
+    <div class="rule">
+      <span class="tag do">Do</span>
+      <h4>Always ground in black</h4>
+      <p>Stop 3 is non-negotiable. Chase black unifies every team card and keeps the nameplate legible at the bottom. Never drop it even if the team has no dark brand color.</p>
+    </div>
+    <div class="rule">
+      <span class="tag do">Do</span>
+      <h4>Use official primary/secondary</h4>
+      <p>Pull hex values from the team's current brand guidelines, not NBA-affiliated colors. Sparks use LA purple/gold (sister team), but Sky is its own Chicago palette — not Bulls red.</p>
+    </div>
+    <div class="rule">
+      <span class="tag careful">Careful</span>
+      <h4>Light primaries need contrast</h4>
+      <p>Liberty (seafoam) and Fever (gold) have light primaries. The monogram and player name must use dark text (#0A0A0B) on the hero mark area, or a strong text shadow — not white on white.</p>
+    </div>
+    <div class="rule">
+      <span class="tag careful">Careful</span>
+      <h4>Some teams have low internal contrast</h4>
+      <p>Phoenix's sunburst-orange-to-deep-purple and Valkyries' gold-to-navy are high-contrast. Seattle green-to-yellow reads cleanly. Aces gold-to-black, Washington red-to-navy, and Liberty green-to-black need the mid-stop handled carefully or they read as one block.</p>
+    </div>
+    <div class="rule">
+      <span class="tag dont">Don't</span>
+      <h4>Don't invent team colors</h4>
+      <p>When future expansion teams join (Cleveland 2028, Detroit 2029, Philadelphia 2030), wait for official brand guidelines before adding. Document the source URL in a comment on <code>window.TEAMS</code>.</p>
+    </div>
+    <div class="rule">
+      <span class="tag dont">Don't</span>
+      <h4>Don't stack more than 3 stops</h4>
+      <p>More stops make the card noisy and compete with parallel treatments. If a team has three brand colors (e.g. Storm green + orange + yellow), pick the two that define the jersey — keep the third for accents elsewhere.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js?v=2"></script>
+<script type="text/babel" src="CardArt.jsx?v=2"></script>
+
+<script type="text/babel">
+  // --- copy-to-clipboard utility ---
+  const toast = document.getElementById('toast');
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove('show'), 1200);
+  }
+  function copy(hex) {
+    navigator.clipboard?.writeText(hex);
+    showToast('copied ' + hex);
+  }
+
+  // --- anatomy card ---
+  const sampleCard = {
+    id: 'sample', player: 'Caitlin Clark', team: 'Indiana Fever',
+    set: '2024 Prizm', num: 1, parallel: 'silver', rookie: true,
+    serial: null, cond: 'NM',
+  };
+  ReactDOM.createRoot(document.getElementById('anatomy-card'))
+    .render(<window.CardArt card={sampleCard} size="lg" scanned={true} />);
+
+  // --- team grid ---
+  function TeamCard({ name, def }) {
+    if (!def) { console.warn('Missing team def for', name); return null; }
+    const { p, s, short, recipe, angle, mark, city } = def;
+    const heroGradient = `linear-gradient(${angle}deg, ${p} 0%, ${s} 60%, #0A0A0B 100%)`;
+    // Pick a sample player by team; fall back to a generic.
+    const samplePlayer = {
+      'Indiana Fever': 'Caitlin Clark',
+      'Chicago Sky': 'Angel Reese',
+      'Las Vegas Aces': "A'ja Wilson",
+      'New York Liberty': 'Breanna Stewart',
+      'Los Angeles Sparks': 'Cameron Brink',
+      'Seattle Storm': 'Nneka Ogwumike',
+      'Phoenix Mercury': 'Kahleah Copper',
+      'Minnesota Lynx': 'Napheesa Collier',
+      'Connecticut Sun': 'Tina Charles',
+      'Washington Mystics': 'Brittney Sykes',
+      'Atlanta Dream': 'Rhyne Howard',
+      'Dallas Wings': 'Paige Bueckers',
+      'Golden State Valkyries': 'Kayla Thornton',
+      'Toronto Tempo': 'Kia Nurse',
+      'Portland Fire': 'Sonia Citron',
+    }[name] || 'Star Player';
+
+    const card = {
+      id: short.toLowerCase(), player: samplePlayer, team: name,
+      set: '2024 Prizm', num: 1, parallel: 'silver', rookie: false,
+      serial: null, cond: 'NM',
+    };
+
+    // Decide monogram text color based on primary luminance
+    const lum = (() => {
+      const h = p.replace('#','');
+      const r = parseInt(h.substr(0,2),16), g = parseInt(h.substr(2,2),16), b = parseInt(h.substr(4,2),16);
+      return (0.299*r + 0.587*g + 0.114*b)/255;
+    })();
+    const monoColor = lum > 0.6 ? '#0A0A0B' : '#FFFFFF';
+
+    return (
+      <div className="team-card">
+        <div className="tc-hero" style={{ background: heroGradient }}>
+          <div className="monogram" style={{ color: monoColor, textShadow: lum > 0.6 ? 'none' : '0 4px 14px rgba(0,0,0,0.5)' }}>{short}</div>
+        </div>
+        <div className="tc-body">
+          <div className="tc-name">{name}</div>
+          <div className="tc-recipe">{recipe} · {angle}°</div>
+          <div className="tc-swatches">
+            <div className="sw" style={{ background: p }} onClick={() => copy(p)}>
+              <div className="sw-hex">{p}</div>
+            </div>
+            <div className="sw" style={{ background: s }} onClick={() => copy(s)}>
+              <div className="sw-hex">{s}</div>
+            </div>
+          </div>
+          <div className="tc-card-sample">
+            <window.CardArt card={card} size="md" scanned={true} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function TeamGrid({ teams }) {
+    return <>
+      {teams.map(([name, def]) => <TeamCard key={name} name={name} def={def} />)}
+    </>;
+  }
+  const EAST = ['Atlanta Dream','Chicago Sky','Connecticut Sun','Indiana Fever','New York Liberty','Toronto Tempo','Washington Mystics'];
+  const WEST = ['Dallas Wings','Golden State Valkyries','Las Vegas Aces','Los Angeles Sparks','Minnesota Lynx','Phoenix Mercury','Portland Fire','Seattle Storm'];
+  const eastEntries = EAST.map(n => [n, window.TEAMS[n]]);
+  const westEntries = WEST.map(n => [n, window.TEAMS[n]]);
+  ReactDOM.createRoot(document.getElementById('team-grid-east')).render(<TeamGrid teams={eastEntries} />);
+  ReactDOM.createRoot(document.getElementById('team-grid-west')).render(<TeamGrid teams={westEntries} />);
+</script>
+</body>
+</html>

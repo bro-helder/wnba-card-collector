@@ -1,56 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  color-scheme: dark;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  @apply bg-[#0A0A0B] text-[#F5F5F7] antialiased;
-  font-family: var(--font-body), Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-a {
-  @apply text-[#F5F5F7] hover:text-white;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-::selection {
-  background: rgba(255, 71, 19, 0.3);
-}
-
-#root,
-#__next {
-  min-height: 100vh;
-}
-
-/* Shared form field style used across scan, manual entry, etc. */
-@layer components {
-  .input-field {
-    @apply w-full rounded-lg border border-[#2A2A2F] bg-[#1F1F23] px-3 py-2.5 text-sm text-[#F5F5F7] placeholder-[#45454E] outline-none focus:border-[#FF4713] focus:ring-1 focus:ring-[#FF4713]/30 transition-colors;
-  }
-
-  .input-field option {
-    @apply bg-[#1F1F23] text-[#F5F5F7];
-  }
-}
-
-/* ── Card animations ──────────────────────────────────── */
+/* WNBA Card Collector prototype styles */
 
 @keyframes rainbow-border {
   0%   { border-color: #FF4713; box-shadow: 0 0 16px rgba(255,71,19,0.5); }
@@ -78,16 +26,7 @@ textarea {
 
 @keyframes pulse-ring {
   0%, 100% { box-shadow: 0 0 0 0 rgba(255,71,19,0.6); }
-  50%       { box-shadow: 0 0 0 8px rgba(255,71,19,0); }
-}
-
-@keyframes alertPulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.3); opacity: 0.7; }
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  50%      { box-shadow: 0 0 0 8px rgba(255,71,19,0); }
 }
 
 .shimmer-bg {
@@ -106,6 +45,7 @@ textarea {
   animation: mojo-shift 4s ease-in-out infinite;
 }
 
+/* Holographic overlay used for premium parallels on the card art */
 .holo-sweep {
   position: absolute;
   inset: 0;
@@ -113,7 +53,6 @@ textarea {
   pointer-events: none;
   border-radius: inherit;
 }
-
 .holo-sweep::after {
   content: '';
   position: absolute;
@@ -133,9 +72,11 @@ textarea {
   animation: holo-sweep 3.2s ease-in-out infinite;
 }
 
+/* Scrollbar hiding for horizontal chip scrollers */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Card tilt on hover — the tactile joy */
 .tilt-card {
   transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
               box-shadow 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -146,10 +87,8 @@ textarea {
   box-shadow: 0 12px 28px rgba(0,0,0,0.75), 0 2px 6px rgba(0,0,0,0.5);
 }
 
-/* Respect reduced motion */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+  .shimmer-bg, .rainbow-border, .mojo-gradient, .holo-sweep::after,
+  .tilt-card { animation: none !important; transition: none !important; }
 }

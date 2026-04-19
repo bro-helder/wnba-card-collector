@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Chase — Scan Flow</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', -apple-system, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="CardArt.jsx"></script>
+<script type="text/babel" src="Chrome.jsx"></script>
+<script type="text/babel" src="ScanScreen.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+function Screen({ label, children, note }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <DCArtboard label={label} width={402} height={874} style={{
+        background: '#000', borderRadius: 48,
+        boxShadow: '0 30px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)',
+      }}>
+        <IOSDevice dark={true} width={402} height={874}>
+          {children}
+        </IOSDevice>
+      </DCArtboard>
+      {note && (
+        <div style={{
+          position: 'absolute', top: -44, right: 0, width: 220,
+          fontSize: 11, color: 'rgba(60,50,40,0.7)',
+          fontStyle: 'italic', textAlign: 'right', lineHeight: 1.4,
+        }}>{note}</div>
+      )}
+    </div>
+  );
+}
+
+function ShellWithNav({ children }) {
+  return (
+    <div style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#0A0A0B' }}>
+      <div style={{ height: '100%', overflowY: 'auto' }}>{children}</div>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 40 }}>
+        <BottomNav active="scan" />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <div style={{ padding: '20px 0 0 60px', marginBottom: 12 }}>
+        <div style={{
+          fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800, fontSize: 44,
+          letterSpacing: -0.5, textTransform: 'uppercase',
+          color: 'rgba(40,30,20,0.9)', lineHeight: 1,
+        }}>Chase · Scan Flow</div>
+        <div style={{
+          fontSize: 13, color: 'rgba(60,50,40,0.65)', marginTop: 4, fontWeight: 500,
+        }}>Photo → AI identifies → confirm → pack-opening success · left-to-right tells the story</div>
+      </div>
+
+      <DCSection title="A · Happy path — from tap to 1-of-1" subtitle="The full flow. Each frame is one stage; read left-to-right.">
+        <Screen label="A1 · Idle (empty)"
+          note="Front required, back optional. Primary button disabled until front is captured.">
+          <ShellWithNav><ScanIdle hasFront={false} hasBack={false} /></ShellWithNav>
+        </Screen>
+        <Screen label="A2 · Idle (front captured)"
+          note="Retake/clear available; primary button activates orange.">
+          <ShellWithNav><ScanIdle hasFront={true} hasBack={false} /></ShellWithNav>
+        </Screen>
+        <Screen label="A3 · Processing"
+          note="Pulsing orange ring on the card. Stage checklist shows progress through the 2-stage AI pipeline.">
+          <ShellWithNav><ScanProcessing stage="classifying" /></ShellWithNav>
+        </Screen>
+        <Screen label="A4 · Confirming (high conf)"
+          note="Top candidate, confidence badge, parallel badge, AI reasoning collapsed. Primary action is unambiguous.">
+          <ShellWithNav><ScanConfirming candidateIdx={0} confidence="high" showReasoning={false} /></ShellWithNav>
+        </Screen>
+        <Screen label="A5 · Success"
+          note="Pack-opening energy: teal+gold radial glow, 1-of-1 supertitle, checkmark badge. 'Scan Another' is the primary action.">
+          <ShellWithNav><ScanSuccess /></ShellWithNav>
+        </Screen>
+      </DCSection>
+
+      <DCSection title="B · Variations & edge cases" subtitle="Different confidence states, manual fallback, reasoning expanded.">
+        <Screen label="B1 · AI Reasoning expanded"
+          note="Tap the reasoning row to reveal Claude's rationale. Collectors trust UI that shows its work.">
+          <ShellWithNav><ScanConfirming candidateIdx={0} confidence="high" showReasoning={true} /></ShellWithNav>
+        </Screen>
+        <Screen label="B2 · Low confidence + candidate 2"
+          note="Yellow warning banner, dot nav jumps to 2/3, dimmer candidate shown. Swipe left/right navigates candidates.">
+          <ShellWithNav><ScanConfirming candidateIdx={1} confidence="low" showReasoning={true} /></ShellWithNav>
+        </Screen>
+        <Screen label="B3 · Manual entry"
+          note="'None of these' fallback. Same field layout as Confirming but empty + required asterisks. Never dead-ends.">
+          <ShellWithNav><ScanManual /></ShellWithNav>
+        </Screen>
+        <Screen label="B4 · Earlier processing stage"
+          note="Stage checklist: 'Uploading' complete, 'Identifying' active, 'Classifying' pending.">
+          <ShellWithNav><ScanProcessing stage="identifying" /></ShellWithNav>
+        </Screen>
+      </DCSection>
+
+      <div style={{ padding: '0 60px', marginTop: -20, marginBottom: 60, position: 'relative' }}>
+        <DCPostIt top={-10} left={60} rotate={-3} width={260}>
+          Success state leans hard into pack-opening energy — radial glow scales with pull rarity. Regular base adds get a subtle teal flash; 1/1s get the gold halo + "1-OF-1 PULLED" supertitle.
+        </DCPostIt>
+        <DCPostIt top={-10} right={80} rotate={2} width={240}>
+          Confirmation is the gate. No "are you sure?" after confirm — the confirmation screen IS the confirmation. Fields are editable right there.
+        </DCPostIt>
+      </div>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

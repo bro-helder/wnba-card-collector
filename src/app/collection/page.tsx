@@ -1,366 +1,528 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
-import { SectionShell } from '@/components/SectionShell';
-import type { Session } from '@supabase/supabase-js';
+import { CardArt, type CardData } from '@/components/CardArt';
+import { ParallelBadge } from '@/components/ParallelBadge';
+import { PARALLELS, TEAMS, nameToParallelKey, type ParallelKey } from '@/lib/cardData';
 
-type RelatedSet = {
-  name: string | null;
-};
+// ── Types ──────────────────────────────────────────────────────────────────────
 
-type RelatedCard = {
-  card_number: string | null;
-  player_name: string | null;
-  team: string | null;
-  sets: RelatedSet | RelatedSet[] | null;
-};
-
-type CollectionCard = {
+interface DBCollectionRow {
   id: string;
-  quantity: number | null;
+  serial_number: string | null;
   condition: string | null;
-  created_at: string | null;
-  cards: RelatedCard | RelatedCard[] | null;
-};
+  cost_paid: number | null;
+  acquisition_date: string | null;
+  notes: string | null;
+  cards: {
+    player_name: string;
+    team: string | null;
+    card_number: string;
+    rookie_card: boolean | null;
+    sets: { name: string; year: number } | null;
+  } | null;
+  parallels: {
+    name: string;
+    print_run: number | null;
+  } | null;
+}
 
-export default function CollectionPage() {
-  const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
-  const [collection, setCollection] = useState<CollectionCard[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState({
-    setName: '',
-    year: '2024',
-    manufacturer: 'Panini',
-    cardNumber: '',
-    playerName: '',
-    team: '',
-    condition: 'Near Mint',
-    quantity: '1',
-  });
+interface CollectionCard extends CardData {
+  id: string;
+  cond: string;
+  cost: number;
+  date: string;
+  fav: boolean;
+}
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push('/login');
-        return;
-      }
+type ViewMode = 'grid' | 'list' | 'stack';
+type FilterKey = 'all' | 'rookies' | 'premium' | 'hits';
 
-      setSession(session);
-    });
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        router.push('/login');
-      } else {
-        setSession(session);
-      }
-    });
+function condShort(cond: string | null): 'MT' | 'NM' | 'EX' {
+  if (!cond) return 'NM';
+  const c = cond.toLowerCase();
+  if (c.includes('mint') && !c.includes('near')) return 'MT';
+  if (c.includes('near mint') || c.includes('nm')) return 'NM';
+  return 'EX';
+}
 
-    return () => subscription.unsubscribe();
-  }, [router]);
+function mapRow(row: DBCollectionRow): CollectionCard {
+  const card = row.cards;
+  const set = card?.sets;
+  const parallelKey = nameToParallelKey(row.parallels?.name);
+  const setName = set ? `${set.year} ${set.name}` : '2024 Prizm';
 
-  useEffect(() => {
-    if (session) {
-      loadCollection();
-    }
-  }, [session]);
+  return {
+    id: row.id,
+    player: card?.player_name ?? 'Unknown Player',
+    team: card?.team ?? 'Indiana Fever',
+    set: setName,
+    num: card?.card_number ?? '?',
+    parallel: parallelKey,
+    rookie: card?.rookie_card ?? false,
+    serial: row.serial_number,
+    cond: condShort(row.condition),
+    cost: row.cost_paid ?? 0,
+    date: row.acquisition_date ?? row.id,
+    fav: false,
+  };
+}
 
-  async function loadCollection() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('collection')
-      .select('id,quantity,condition,created_at,cards(card_number,player_name,team,sets(name))')
-      .order('created_at', { ascending: false });
+// ── Filter chip ────────────────────────────────────────────────────────────────
 
-    setLoading(false);
-
-    if (error) {
-      setMessage(`Unable to load collection: ${error.message}`);
-      return;
-    }
-
-    setCollection(data ?? []);
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage(null);
-    setLoading(true);
-
-    const { setName, year, manufacturer, cardNumber, playerName, team, condition, quantity } = formValues;
-    if (!setName || !cardNumber || !playerName) {
-      setMessage('Set name, card number, and player name are required.');
-      setLoading(false);
-      return;
-    }
-
-    const userId = session?.user.id;
-    if (!userId) {
-      setMessage('Unable to detect user session. Please sign in again.');
-      setLoading(false);
-      return;
-    }
-
-    const { data: existingSet, error: setError } = await supabase
-      .from('sets')
-      .select('id')
-      .eq('name', setName)
-      .eq('year', parseInt(year, 10))
-      .eq('manufacturer', manufacturer)
-      .limit(1)
-      .maybeSingle();
-
-    if (setError) {
-      setMessage(`Error checking set: ${setError.message}`);
-      setLoading(false);
-      return;
-    }
-
-    let setId = existingSet?.id;
-
-    if (!setId) {
-      const { data: insertedSet, error: insertSetError } = await supabase
-.from('sets')
-        .insert({ name: setName, year: parseInt(year, 10), manufacturer })
-        .select('id')
-        .single();
-
-      if (insertSetError) {
-        setMessage(`Unable to create set: ${insertSetError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      setId = insertedSet.id;
-    }
-
-    const { data: existingCard, error: selectCardError } = await supabase
-      .from('cards')
-      .select('id')
-      .eq('set_id', setId)
-      .eq('card_number', cardNumber)
-      .limit(1)
-      .maybeSingle();
-
-    if (selectCardError) {
-      setMessage(`Error checking card: ${selectCardError.message}`);
-      setLoading(false);
-      return;
-    }
-
-    let cardId = existingCard?.id;
-
-    if (!cardId) {
-      const { data: insertedCard, error: insertCardError } = await supabase
-        .from('cards')
-        .insert({
-          set_id: setId,
-          card_number: cardNumber,
-          player_name: playerName,
-          team,
-        })
-        .select('id')
-        .single();
-
-      if (insertCardError) {
-        setMessage(`Unable to create card: ${insertCardError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      cardId = insertedCard.id;
-    }
-
-    const { error: insertCollectionError } = await supabase.from('collection').insert({
-      user_id: userId,
-      card_id: cardId,
-      quantity: parseInt(quantity, 10),
-      condition,
-    });
-
-    setLoading(false);
-
-    if (insertCollectionError) {
-      setMessage(`Unable to add card to collection: ${insertCollectionError.message}`);
-      return;
-    }
-
-    setFormValues({
-      setName: '',
-      year: '2024',
-      manufacturer: 'Panini',
-      cardNumber: '',
-      playerName: '',
-      team: '',
-      condition: 'Near Mint',
-      quantity: '1',
-    });
-
-    setMessage('Card added to your collection successfully.');
-    loadCollection();
-  }
-
+function FilterChip({ label, active, count, onClick }: { label: string; active?: boolean; count?: number; onClick?: () => void }) {
   return (
-    <SectionShell
-      title="Collection"
-      description="Browse your owned cards and add new cards manually to validate Supabase connectivity."
-      action={
-        <Link href="/checklist" className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700">
-          Manage Checklists
-        </Link>
-      }
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '8px 14px', borderRadius: 9999,
+        fontFamily: 'var(--font-body), Inter, sans-serif',
+        fontSize: 13, fontWeight: 600,
+        background: active ? '#FF4713' : '#1F1F23',
+        color: active ? '#fff' : '#8E8E9A',
+        border: active ? '1px solid #FF4713' : '1px solid #2A2A2F',
+        cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+        transition: 'all 150ms',
+      }}
     >
-      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-        <div className="space-y-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-glow">
-          <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-cyan-300/80">Manual add</p>
-            <h2 className="mt-3 text-xl font-semibold text-white">Add a card to collection</h2>
-            <p className="mt-2 text-slate-400">Create a set/card reference and save it to your personal collection in Supabase.</p>
-          </div>
+      {label}
+      {count !== undefined && <span style={{ fontSize: 11, opacity: 0.7 }}>{count}</span>}
+    </button>
+  );
+}
 
-          {message ? (
-            <div className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4 text-sm text-slate-200">
-              {message}
-            </div>
-          ) : null}
+// ── View mode button ───────────────────────────────────────────────────────────
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <label className="block text-sm text-slate-300">
-              Set name
-              <input
-                value={formValues.setName}
-                onChange={(event) => setFormValues({ ...formValues, setName: event.target.value })}
-                placeholder="2024 Panini Prizm WNBA"
-                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-              />
-            </label>
+function ViewBtn({ mode, current, onClick, icon }: { mode: ViewMode; current: ViewMode; onClick: () => void; icon: string }) {
+  const active = mode === current;
+  return (
+    <button onClick={onClick} style={{
+      width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
+      background: active ? '#FF471326' : 'transparent',
+      color: active ? '#FF4713' : '#45454E',
+      fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>{icon}</button>
+  );
+}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm text-slate-300">
-                Year
-                <input
-                  value={formValues.year}
-                  onChange={(event) => setFormValues({ ...formValues, year: event.target.value })}
-                  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-                />
-              </label>
-              <label className="block text-sm text-slate-300">
-                Manufacturer
-                <input
-                  value={formValues.manufacturer}
-                  onChange={(event) => setFormValues({ ...formValues, manufacturer: event.target.value })}
-                  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-                />
-              </label>
-            </div>
+// ── Grid card ─────────────────────────────────────────────────────────────────
 
-            <label className="block text-sm text-slate-300">
-              Card number
-              <input
-                value={formValues.cardNumber}
-                onChange={(event) => setFormValues({ ...formValues, cardNumber: event.target.value })}
-                placeholder="#45"
-                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-              />
-            </label>
-
-            <label className="block text-sm text-slate-300">
-              Player name
-              <input
-                value={formValues.playerName}
-                onChange={(event) => setFormValues({ ...formValues, playerName: event.target.value })}
-                placeholder="A'ja Wilson"
-                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-              />
-            </label>
-
-            <label className="block text-sm text-slate-300">
-              Team
-              <input
-                value={formValues.team}
-                onChange={(event) => setFormValues({ ...formValues, team: event.target.value })}
-                placeholder="Las Vegas Aces"
-                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-              />
-            </label>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm text-slate-300">
-                Condition
-                <input
-                  value={formValues.condition}
-                  onChange={(event) => setFormValues({ ...formValues, condition: event.target.value })}
-                  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-                />
-              </label>
-              <label className="block text-sm text-slate-300">
-                Quantity
-                <input
-                  value={formValues.quantity}
-                  onChange={(event) => setFormValues({ ...formValues, quantity: event.target.value })}
-                  type="number"
-                  min={1}
-                  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
-                />
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? 'Saving…' : 'Add to Collection'}
-            </button>
-          </form>
-        </div>
-
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-glow">
-          <div className="mb-6">
-            <p className="text-sm uppercase tracking-[0.24em] text-cyan-300/80">Your collection</p>
-            <h2 className="mt-3 text-xl font-semibold text-white">Current cards</h2>
-            <p className="mt-2 text-slate-400">This list shows cards that have been saved to Supabase for your account.</p>
-          </div>
-
-          {loading && collection.length === 0 ? (
-            <p className="text-sm text-slate-500">Loading collection…</p>
-          ) : collection.length === 0 ? (
-            <p className="text-sm text-slate-500">No cards yet. Add a card above to verify Supabase writes.</p>
-          ) : (
-            <div className="space-y-4">
-              {collection.map((item) => {
-                const card = Array.isArray(item.cards) ? item.cards[0] : item.cards;
-                const sets = card?.sets;
-                const set = Array.isArray(sets) ? sets[0] : sets;
-                return (
-                  <div key={item.id} className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm uppercase tracking-[0.18em] text-slate-500">{set?.name ?? 'Unknown set'}</p>
-                        <p className="mt-1 text-lg font-semibold text-white">{card?.player_name ?? 'Unnamed player'}</p>
-                      </div>
-                      <div className="text-right text-sm text-slate-400">
-                        <p>{card?.card_number ?? '—'}</p>
-                        <p>{item.quantity ?? 1}×</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-400">
-                      <span>{card?.team ?? 'Unknown team'}</span>
-                      <span>{item.condition ?? 'No condition'}</span>
-                      <span>{item.created_at ? new Date(item.created_at).toLocaleDateString() : 'No date'}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+function GridCard({ card }: { card: CollectionCard }) {
+  return (
+    <div className="tilt-card" style={{ position: 'relative' }}>
+      <CardArt card={card} size="sm" />
+      <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{
+          fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+          fontWeight: 700, fontSize: 13, lineHeight: 1.1,
+          color: '#F5F5F7', textTransform: 'uppercase',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{card.player}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+          <ParallelBadge parallelKey={card.parallel} size="sm" />
+          {card.cost > 0 && (
+            <div style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontWeight: 700, fontSize: 12, color: '#8E8E9A',
+            }}>${card.cost}</div>
           )}
         </div>
       </div>
-    </SectionShell>
+    </div>
+  );
+}
+
+// ── Featured card (hero in grid view) ─────────────────────────────────────────
+
+function FeatureCard({ card }: { card: CollectionCard }) {
+  const p = PARALLELS[card.parallel];
+  return (
+    <div style={{
+      position: 'relative',
+      background: '#161618', border: '1px solid #1F1F23',
+      borderRadius: 14, padding: 14,
+      display: 'flex', gap: 14, overflow: 'hidden',
+    }}>
+      <div style={{ width: 120, flexShrink: 0 }} className="tilt-card">
+        <CardArt card={card} size="md" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+          {card.fav && <span style={{ color: '#FFD700', fontSize: 14 }}>★</span>}
+          <span style={{
+            fontFamily: 'var(--font-body), Inter, sans-serif',
+            fontSize: 10, fontWeight: 600, color: '#00C9A7',
+            textTransform: 'uppercase', letterSpacing: 1.5,
+          }}>Featured</span>
+        </div>
+        <div style={{
+          fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+          fontWeight: 800, fontSize: 22, lineHeight: 1.05,
+          textTransform: 'uppercase', marginBottom: 2,
+        }}>{card.player}</div>
+        <div style={{ fontSize: 12, color: '#8E8E9A', marginBottom: 8 }}>
+          {card.set} · #{card.num}
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <ParallelBadge parallelKey={card.parallel} />
+        </div>
+        {card.serial && (
+          <div style={{
+            fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+            fontWeight: 700, fontSize: 13, color: '#F5F5F7', marginBottom: 8,
+          }}>Serial <span style={{ color: p.hex }}>{card.serial}</span></div>
+        )}
+        {card.cost > 0 && (
+          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <div style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontWeight: 800, fontSize: 20, color: '#F5F5F7',
+            }}>${card.cost}</div>
+            <div style={{ fontSize: 10, color: '#8E8E9A', textTransform: 'uppercase', letterSpacing: 1 }}>
+              paid · {card.cond}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── List row ──────────────────────────────────────────────────────────────────
+
+function ListRow({ card }: { card: CollectionCard }) {
+  const team = TEAMS[card.team];
+  const p = PARALLELS[card.parallel];
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      background: '#161618', border: '1px solid #1F1F23',
+      borderRadius: 12, padding: 10,
+    }}>
+      <div style={{ width: 54, flexShrink: 0 }}>
+        <CardArt card={card} size="sm" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          {card.fav && <span style={{ color: '#FFD700', fontSize: 12, lineHeight: 1 }}>★</span>}
+          <div style={{
+            fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+            fontWeight: 700, fontSize: 17, lineHeight: 1.1,
+            textTransform: 'uppercase', letterSpacing: 0.3,
+          }}>{card.player}</div>
+          {card.rookie && (
+            <span style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontWeight: 800, fontSize: 9, color: '#FFD700',
+              border: '1px solid #FFD70099', borderRadius: 3,
+              padding: '1px 4px', lineHeight: 1, letterSpacing: 0.5,
+            }}>RC</span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: '#8E8E9A', marginBottom: 4 }}>
+          {card.set} · #{card.num} · {team?.short ?? ''}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <ParallelBadge parallelKey={card.parallel} size="sm" />
+          {card.serial && (
+            <span style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontWeight: 700, fontSize: 10, color: p.hex, letterSpacing: 0.5,
+            }}>{card.serial}</span>
+          )}
+        </div>
+      </div>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        {card.cost > 0 && (
+          <>
+            <div style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontWeight: 800, fontSize: 16, color: '#F5F5F7', lineHeight: 1,
+            }}>${card.cost}</div>
+            <div style={{ fontSize: 9, color: '#8E8E9A', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>
+              {card.cond}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Stack view ────────────────────────────────────────────────────────────────
+
+function StackView({ cards }: { cards: CollectionCard[] }) {
+  const groups: Record<string, CollectionCard[]> = {};
+  cards.forEach(c => {
+    groups[c.player] = groups[c.player] || [];
+    groups[c.player].push(c);
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {Object.entries(groups).map(([player, pCards]) => {
+        const team = TEAMS[pCards[0].team];
+        return (
+          <div key={player}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+                  fontWeight: 800, fontSize: 18, textTransform: 'uppercase', letterSpacing: 0.3,
+                }}>{player}</div>
+                <div style={{
+                  fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+                  fontWeight: 700, fontSize: 10, color: team?.p ?? '#FF4713',
+                  letterSpacing: 2, textTransform: 'uppercase',
+                }}>{team?.short ?? ''}</div>
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+                fontWeight: 700, fontSize: 12, color: '#8E8E9A', letterSpacing: 1,
+              }}>{pCards.length} COPIES</div>
+            </div>
+            <div className="no-scrollbar" style={{
+              display: 'flex', gap: 10, overflowX: 'auto',
+              marginLeft: -16, paddingLeft: 16, marginRight: -16, paddingRight: 16,
+              paddingBottom: 4,
+            }}>
+              {pCards.map(c => (
+                <div key={c.id} className="tilt-card" style={{ width: 110, flexShrink: 0 }}>
+                  <CardArt card={c} size="sm" />
+                  <div style={{ marginTop: 6 }}>
+                    <ParallelBadge parallelKey={c.parallel} size="sm" />
+                  </div>
+                  {c.cost > 0 && (
+                    <div style={{
+                      fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+                      fontWeight: 700, fontSize: 12, color: '#F5F5F7', marginTop: 4,
+                    }}>${c.cost}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+export default function CollectionPage() {
+  const router = useRouter();
+  const [cards, setCards] = useState<CollectionCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<ViewMode>('grid');
+  const [filter, setFilter] = useState<FilterKey>('all');
+  const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push('/login'); return; }
+      loadCollection();
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      if (!session) router.push('/login');
+    });
+    return () => subscription.unsubscribe();
+  }, [router]);
+
+  async function loadCollection() {
+    setLoading(true);
+    const { data } = await supabase
+      .from('collection')
+      .select('id,serial_number,condition,cost_paid,acquisition_date,notes,cards(player_name,team,card_number,rookie_card,sets(name,year)),parallels(name,print_run)')
+      .order('acquisition_date', { ascending: false });
+
+    setLoading(false);
+    if (data) setCards((data as unknown as DBCollectionRow[]).map(mapRow));
+  }
+
+  const filtered = useMemo(() => {
+    let r = cards;
+    if (filter === 'rookies') r = r.filter(c => c.rookie);
+    if (filter === 'premium') r = r.filter(c => {
+      const p = PARALLELS[c.parallel];
+      return p.run !== undefined && p.run <= 25;
+    });
+    if (filter === 'hits') r = r.filter(c => c.cost > 200);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      r = r.filter(c =>
+        c.player.toLowerCase().includes(q) ||
+        c.team.toLowerCase().includes(q) ||
+        c.set.toLowerCase().includes(q)
+      );
+    }
+    return r;
+  }, [cards, filter, search]);
+
+  const totalValue = filtered.reduce((s, c) => s + c.cost, 0);
+  const hitsCount = filtered.filter(c => { const p = PARALLELS[c.parallel]; return p.run !== undefined && p.run <= 25; }).length;
+
+  const [feature, ...rest] = filtered;
+
+  return (
+    <div style={{ background: '#0A0A0B', minHeight: '100vh', color: '#F5F5F7', paddingBottom: 100, fontFamily: 'var(--font-body), Inter, sans-serif' }}>
+
+      {/* Header */}
+      <div style={{ padding: '56px 16px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <div style={{
+              fontFamily: 'var(--font-body), Inter, sans-serif',
+              fontSize: 11, fontWeight: 600, letterSpacing: 2,
+              color: '#FF4713', textTransform: 'uppercase', marginBottom: 2,
+            }}>My Collection</div>
+            <div style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontWeight: 800, fontSize: 38, lineHeight: 1,
+              textTransform: 'uppercase', letterSpacing: 0.5,
+            }}>The Vault</div>
+          </div>
+          <div style={{
+            width: 36, height: 36, borderRadius: 9999,
+            background: 'linear-gradient(135deg, #FF4713, #FFD700)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+            fontWeight: 800, fontSize: 14, color: '#fff', letterSpacing: 0.5,
+          }}>BR</div>
+        </div>
+
+        {/* Stat strip */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+          background: '#161618', border: '1px solid #1F1F23',
+          borderRadius: 14, padding: '12px 6px', marginBottom: 14,
+        }}>
+          {[
+            { v: filtered.length, l: 'Cards' },
+            { v: totalValue > 0 ? `$${(totalValue / 1000).toFixed(1)}k` : '—', l: 'Value' },
+            { v: hitsCount, l: 'Hits' },
+          ].map((s, i) => (
+            <div key={i} style={{ textAlign: 'center', borderLeft: i > 0 ? '1px solid #1F1F23' : 'none' }}>
+              <div style={{
+                fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+                fontWeight: 800, fontSize: 22, lineHeight: 1, color: '#F5F5F7',
+              }}>{s.v}</div>
+              <div style={{ fontSize: 10, fontWeight: 500, color: '#8E8E9A', textTransform: 'uppercase', letterSpacing: 1, marginTop: 3 }}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Search bar */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: '#161618',
+          border: `1px solid ${searchFocused ? '#FF471366' : '#2A2A2F'}`,
+          borderRadius: 12, padding: '10px 14px', marginBottom: 12,
+          height: 44, boxSizing: 'border-box', transition: 'border-color 150ms',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E9A" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Search player, set, or #…"
+            style={{
+              flex: 1, fontSize: 14, background: 'none', border: 'none', outline: 'none',
+              color: '#F5F5F7', fontFamily: 'var(--font-body), Inter, sans-serif',
+            }}
+          />
+          {search && (
+            <div style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontSize: 11, fontWeight: 700, color: '#00C9A7',
+              textTransform: 'uppercase', letterSpacing: 1,
+            }}>{filtered.length} match</div>
+          )}
+        </div>
+
+        {/* Filter chips + view mode */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div className="no-scrollbar" style={{
+            display: 'flex', gap: 8, overflowX: 'auto',
+            paddingBottom: 2, flex: 1,
+          }}>
+            <FilterChip label="All"      active={filter === 'all'}     count={cards.length}                          onClick={() => setFilter('all')} />
+            <FilterChip label="Rookies"  active={filter === 'rookies'} count={cards.filter(c => c.rookie).length}    onClick={() => setFilter('rookies')} />
+            <FilterChip label="Premium"  active={filter === 'premium'} count={cards.filter(c => { const p = PARALLELS[c.parallel]; return p.run !== undefined && p.run <= 25; }).length} onClick={() => setFilter('premium')} />
+            <FilterChip label="Big Hits" active={filter === 'hits'}    onClick={() => setFilter('hits')} />
+          </div>
+          <div style={{ display: 'flex', gap: 2, marginLeft: 8, flexShrink: 0 }}>
+            <ViewBtn mode="grid"  current={view} onClick={() => setView('grid')}  icon="⊞" />
+            <ViewBtn mode="list"  current={view} onClick={() => setView('list')}  icon="☰" />
+            <ViewBtn mode="stack" current={view} onClick={() => setView('stack')} icon="⫶" />
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: '0 16px' }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#8E8E9A' }}>
+            <div style={{ fontSize: 13 }}>Loading your vault…</div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#8E8E9A' }}>
+            <div style={{
+              fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+              fontWeight: 800, fontSize: 20, color: '#F5F5F7',
+              textTransform: 'uppercase', marginBottom: 8,
+            }}>{cards.length === 0 ? 'Your vault is empty' : 'No cards match'}</div>
+            <div style={{ fontSize: 13 }}>
+              {cards.length === 0 ? 'Scan a card to add it to the vault.' : 'Try a different filter or scan a new pull.'}
+            </div>
+          </div>
+        ) : view === 'grid' ? (
+          <div>
+            {feature && (
+              <>
+                <div style={{
+                  fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+                  fontWeight: 700, fontSize: 14, color: '#8E8E9A',
+                  textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span style={{ color: '#FF4713' }}>◆</span> Featured Pull
+                </div>
+                <FeatureCard card={feature} />
+              </>
+            )}
+            {rest.length > 0 && (
+              <>
+                <div style={{
+                  fontFamily: 'var(--font-display), Barlow Condensed, sans-serif',
+                  fontWeight: 700, fontSize: 14, color: '#8E8E9A',
+                  textTransform: 'uppercase', letterSpacing: 2,
+                  marginTop: 18, marginBottom: 10,
+                }}>Recent Adds · {rest.length}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {rest.map(c => <GridCard key={c.id} card={c} />)}
+                </div>
+              </>
+            )}
+          </div>
+        ) : view === 'list' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filtered.map(c => <ListRow key={c.id} card={c} />)}
+          </div>
+        ) : (
+          <StackView cards={filtered} />
+        )}
+      </div>
+    </div>
   );
 }

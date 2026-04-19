@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Chase — Card Detail</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', -apple-system, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js?v=3"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="CardArt.jsx?v=3"></script>
+<script type="text/babel" src="Chrome.jsx"></script>
+<script type="text/babel" src="CardDetailScreen.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+function FixedBottomNav({ active }) {
+  return (
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 40 }}>
+      <BottomNav active={active} />
+    </div>
+  );
+}
+window.FixedBottomNav = FixedBottomNav;
+
+function Screen({ label, children, note }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <DCArtboard label={label} width={402} height={874} style={{
+        background: '#000', borderRadius: 48,
+        boxShadow: '0 30px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)',
+      }}>
+        <IOSDevice dark={true} width={402} height={874}>
+          {children}
+        </IOSDevice>
+      </DCArtboard>
+      {note && (
+        <div style={{
+          position: 'absolute', top: -44, right: 0, width: 220,
+          fontSize: 11, color: 'rgba(60,50,40,0.7)',
+          fontStyle: 'italic', textAlign: 'right', lineHeight: 1.4,
+        }}>{note}</div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas bg="#f0eee9" minZoom={0.15} maxZoom={2.5} initialZoom={0.45}>
+      <div style={{ padding: '60px 80px', minWidth: 3200 }} data-screen-label="Chase · Card Detail">
+        <div style={{ marginBottom: 48 }}>
+          <div style={{
+            fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800,
+            fontSize: 52, letterSpacing: -1, color: '#1a1814',
+          }}>Card Detail — the museum piece</div>
+          <div style={{
+            fontSize: 13, color: 'rgba(60,50,40,0.65)', marginTop: 4,
+            fontWeight: 500,
+          }}>Tap any card in the Collection → this view. Hero, stats, history, comps, siblings, action bar.</div>
+        </div>
+
+        <DCSection title="A · Standard detail view" subtitle="Most-visited flow. Entry from Collection tap.">
+          <Screen label="A1 · Default"
+            note="Hero card floats w/ subtle tilt. Ambient team glow. Value strip, sparkline, comps.">
+            <CardDetailScreen cardId="c02" state="default" />
+          </Screen>
+          <Screen label="A2 · Back of card"
+            note="Tap the card → flips. Bio + stats on a dark team-color back.">
+            <CardDetailScreen cardId="c02" state="flipped" />
+          </Screen>
+          <Screen label="A3 · Common card"
+            note="Silver base, no serial, smaller market value. Same layout adapts.">
+            <CardDetailScreen cardId="c07" state="default" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="B · Context states" subtitle="Market dynamics and collector actions.">
+          <Screen label="B1 · Trending hot"
+            note="Pop badge turns orange when the player is a league mover.">
+            <CardDetailScreen cardId="c05" state="trending" />
+          </Screen>
+          <Screen label="B2 · Check eBay sheet"
+            note="Tap 'Check eBay' → light sheet of current listings with price, condition, seller, BIN/auction flag. 'Best' tag highlights the likely winner. Tap-out → eBay.">
+            <CardDetailScreen cardId="c02" state="checkingMarket" />
+          </Screen>
+          <Screen label="B3 · Listing sheet"
+            note="'Sell' → bottom-sheet with suggested BIN/auction pre-filled from comps.">
+            <CardDetailScreen cardId="c02" state="selling" />
+          </Screen>
+        </DCSection>
+
+      </div>
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

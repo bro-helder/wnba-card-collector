@@ -1,14 +1,19 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Read(//c/Users/brook/CascadeProjects/WNBA-CARDS/**)",
       "Bash(grep -v \",$\" \"/c/Users/brook/CascadeProjects/WNBA-CARDS/2024 WNBA Panini Prizm.csv\")",
       "Bash(grep -v \",,$\\\\|,$\" \"/c/Users/brook/CascadeProjects/WNBA-CARDS/2024 WNBA Panini Prizm.csv\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(gunzip -c \"webfetch-1776616468930-b4zuvm.bin\")",
+      "Bash(python3 -c \"import gzip; data=open\\('webfetch-1776616468930-b4zuvm.bin','rb'\\).read\\(\\); print\\(gzip.decompress\\(data\\).decode\\('utf-8', errors='replace'\\)[:5000]\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(npm run *)"
     ]
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [

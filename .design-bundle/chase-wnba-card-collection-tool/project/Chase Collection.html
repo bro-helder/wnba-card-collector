@@ -1,0 +1,271 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Chase — WNBA Card Collection</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', -apple-system, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="CardArt.jsx"></script>
+<script type="text/babel" src="Chrome.jsx"></script>
+<script type="text/babel" src="CollectionScreen.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const TWEAKS_DEFAULT = /*EDITMODE-BEGIN*/{
+  "accent": "orange",
+  "cardTilt": true,
+  "parallelAnimations": true,
+  "density": "comfortable"
+}/*EDITMODE-END*/;
+
+function Screen({ label, children, note }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <DCArtboard label={label} width={402} height={874} style={{
+        background: '#000', borderRadius: 48, boxShadow: '0 30px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)',
+      }}>
+        <IOSDevice dark={true} width={402} height={874}>
+          {children}
+        </IOSDevice>
+      </DCArtboard>
+      {note && (
+        <div style={{
+          position: 'absolute', top: -44, right: 0, width: 200,
+          fontSize: 11, color: 'rgba(60,50,40,0.7)',
+          fontStyle: 'italic', textAlign: 'right', lineHeight: 1.4,
+        }}>{note}</div>
+      )}
+    </div>
+  );
+}
+
+function FixedBottomNav({ active }) {
+  return (
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 40 }}>
+      <BottomNav active={active} />
+    </div>
+  );
+}
+
+function ScreenShell({ variant, searchQuery, activeFilter, showFavs, cards, active = 'collection' }) {
+  return (
+    <div style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#0A0A0B' }}>
+      <div style={{ height: '100%', overflowY: 'auto' }}>
+        <CollectionScreen variant={variant} searchQuery={searchQuery} activeFilter={activeFilter} showFavs={showFavs} cards={cards} />
+      </div>
+      <FixedBottomNav active={active} />
+    </div>
+  );
+}
+
+/* Tweaks panel */
+function TweaksPanel({ tweaks, setTweaks }) {
+  const [open, setOpen] = React.useState(false);
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{
+        position: 'fixed', bottom: 20, right: 20, zIndex: 200,
+        background: '#0A0A0B', color: '#fff', border: '1px solid #FF4713',
+        borderRadius: 9999, padding: '10px 16px', cursor: 'pointer',
+        fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600,
+        boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+      }}>◆ Tweaks</button>
+    );
+  }
+  const persist = (patch) => {
+    const next = { ...tweaks, ...patch };
+    setTweaks(next);
+    try { window.parent.postMessage({ type: '__edit_mode_set_keys', edits: patch }, '*'); } catch {}
+  };
+  return (
+    <div style={{
+      position: 'fixed', bottom: 20, right: 20, zIndex: 200,
+      width: 280, background: '#0A0A0B', color: '#F5F5F7',
+      border: '1px solid #2A2A2F', borderRadius: 14, padding: 16,
+      boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+      fontFamily: 'Inter, sans-serif',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{
+          fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800, fontSize: 18,
+          textTransform: 'uppercase', letterSpacing: 1, color: '#FF4713',
+        }}>Tweaks</div>
+        <button onClick={() => setOpen(false)} style={{
+          background: 'none', border: 'none', color: '#8E8E9A', cursor: 'pointer', fontSize: 18,
+        }}>×</button>
+      </div>
+
+      <Row label="Accent">
+        <Seg options={[['orange','Orange'],['teal','Teal'],['mojo','Mojo']]} value={tweaks.accent} onChange={v=>persist({accent:v})} />
+      </Row>
+      <Row label="Card tilt">
+        <Toggle on={tweaks.cardTilt} onChange={v=>persist({cardTilt:v})} />
+      </Row>
+      <Row label="Parallel animations">
+        <Toggle on={tweaks.parallelAnimations} onChange={v=>persist({parallelAnimations:v})} />
+      </Row>
+      <Row label="Density">
+        <Seg options={[['comfortable','Comfort'],['compact','Compact']]} value={tweaks.density} onChange={v=>persist({density:v})} />
+      </Row>
+    </div>
+  );
+}
+function Row({ label, children }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: '#8E8E9A', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+function Toggle({ on, onChange }) {
+  return (
+    <button onClick={() => onChange(!on)} style={{
+      width: 40, height: 22, borderRadius: 9999,
+      background: on ? '#FF4713' : '#2A2A2F', border: 'none',
+      position: 'relative', cursor: 'pointer', padding: 0,
+    }}>
+      <div style={{
+        position: 'absolute', top: 2, left: on ? 20 : 2,
+        width: 18, height: 18, borderRadius: 9999, background: '#fff',
+        transition: 'left 150ms',
+      }} />
+    </button>
+  );
+}
+function Seg({ options, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', background: '#1F1F23', borderRadius: 8, padding: 2 }}>
+      {options.map(([v, l]) => (
+        <button key={v} onClick={() => onChange(v)} style={{
+          background: value === v ? '#FF4713' : 'transparent',
+          color: value === v ? '#fff' : '#8E8E9A',
+          border: 'none', padding: '4px 10px', borderRadius: 6,
+          fontSize: 11, fontWeight: 600, cursor: 'pointer',
+          fontFamily: 'Inter, sans-serif',
+        }}>{l}</button>
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  const [tweaks, setTweaks] = React.useState(TWEAKS_DEFAULT);
+
+  // Apply tweaks via style injection
+  React.useEffect(() => {
+    const styleId = 'tweak-styles';
+    let el = document.getElementById(styleId);
+    if (!el) { el = document.createElement('style'); el.id = styleId; document.head.appendChild(el); }
+    const css = [
+      !tweaks.cardTilt ? '.tilt-card:hover { transform: none !important; box-shadow: 0 4px 16px rgba(0,0,0,0.6) !important; }' : '',
+      !tweaks.parallelAnimations ? '.shimmer-bg, .rainbow-border, .mojo-gradient, .holo-sweep::after { animation: none !important; }' : '',
+    ].join('\n');
+    el.textContent = css;
+  }, [tweaks]);
+
+  // Edit-mode protocol
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') document.getElementById('tweaks-anchor')?.dispatchEvent(new CustomEvent('open-tweaks'));
+    };
+    window.addEventListener('message', onMsg);
+    try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch {}
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  return (
+    <>
+      <DesignCanvas>
+        <div style={{ padding: '20px 0 0 60px', marginBottom: 12 }}>
+          <div style={{
+            fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800, fontSize: 44,
+            letterSpacing: -0.5, textTransform: 'uppercase',
+            color: 'rgba(40,30,20,0.9)', lineHeight: 1,
+          }}>Chase</div>
+          <div style={{
+            fontSize: 13, color: 'rgba(60,50,40,0.65)', marginTop: 4,
+            fontWeight: 500,
+          }}>WNBA Card Collection · Collection screen exploration · Pan/zoom · Hover cards for tilt</div>
+        </div>
+
+        <DCSection title="A · Grid — Hero Pull" subtitle="Features the most prized pull up top, recent adds below. Tactile tilt on hover.">
+          <Screen label="A1 · Default landing"
+            note="Stat strip, featured Caitlin 1/1, 2-col grid below">
+            <ScreenShell variant="grid" activeFilter="all" />
+          </Screen>
+          <Screen label="A2 · Search active"
+            note="Instant filter, match count badge, skinny results">
+            <ScreenShell variant="grid" searchQuery="Cameron" activeFilter="all" />
+          </Screen>
+          <Screen label="A3 · Premium filter"
+            note="/25 or rarer — big hits only">
+            <ScreenShell variant="grid" activeFilter="premium" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="B · List — Info-dense" subtitle="Info-forward browsing for the card-show 'do I own this?' moment.">
+          <Screen label="B1 · Full list"
+            note="Thumb, name, RC badge, parallel, price, condition — all at a glance">
+            <ScreenShell variant="list" activeFilter="all" />
+          </Screen>
+          <Screen label="B2 · Rookies only"
+            note="RC filter — all first-year cards surfaced">
+            <ScreenShell variant="list" activeFilter="rookies" />
+          </Screen>
+          <Screen label="B3 · Search: 'clark'"
+            note="Player search collapses the list fast">
+            <ScreenShell variant="list" searchQuery="clark" activeFilter="all" />
+          </Screen>
+        </DCSection>
+
+        <DCSection title="C · Stacks — Binder metaphor" subtitle="Grouped by player with horizontal scroll — mirrors how collectors actually store dupes.">
+          <Screen label="C1 · Player stacks"
+            note="Each player gets a row, swipe thru copies">
+            <ScreenShell variant="stack" activeFilter="all" />
+          </Screen>
+          <Screen label="C2 · Big Hits only"
+            note="$200+ filter — the showpieces only">
+            <ScreenShell variant="stack" activeFilter="hits" />
+          </Screen>
+          <Screen label="C3 · Empty state"
+            note="Search with no matches — graceful fallback">
+            <ScreenShell variant="stack" searchQuery="jones" activeFilter="all" />
+          </Screen>
+        </DCSection>
+
+        <div style={{ padding: '0 60px', marginTop: -20, marginBottom: 60 }}>
+          <DCPostIt top={-20} right={80} rotate={2} width={240}>
+            Three view modes share the same header (search, filters, stats) — Tweaks panel in the bottom-right lets you swap accent, disable tilt, or flatten parallel animations.
+          </DCPostIt>
+        </div>
+      </DesignCanvas>
+
+      <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>
