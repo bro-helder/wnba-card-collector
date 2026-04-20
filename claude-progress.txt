@@ -4,6 +4,47 @@
 
 ---
 
+## Session: April 20, 2026 — Background Removal Dropped · No-Checklist Parallel ID
+
+### Completed This Session
+
+**Background removal removed entirely:**
+- `@imgly/background-removal` uninstalled (23 packages removed) — was too aggressive, stripping card borders along with table surface; ML model trained on portraits/products, not flat cards
+- `src/lib/imageProcessing.ts` rewritten to compression-only: `browser-image-compression` to 500KB / 1400px, returns `{ file, previewUrl }` (no `bgRemoved` field)
+- `next.config.mjs` reverted to minimal — WASM webpack experiments block (`asyncWebAssembly: true, layers: true`) removed, no longer needed
+- `src/app/scan/page.tsx` — removed all `bgRemoved` references: `ZoneProps`, `Zone` signature, overlay text (→ "Compressing…"), status badge logic, `frontBgRemoved`/`backBgRemoved` state, `handleFileSelected`/`clearFront`/`clearBack`/`reset` call sites
+
+**scan-stage2 no-checklist parallel identification:**
+- `supabase/functions/scan-stage2/index.ts` — added two-branch prompt logic:
+  - `hasChecklist = true` (existing): structured DB parallel list → Claude matches to a `parallel_id`
+  - `hasChecklist = false` (new): free-form visual description prompt; Claude uses Panini/Prizm industry naming conventions to guess `parallel_name`; `parallel_id` returns `null`
+- Stage 2 now always runs an AI call regardless of whether parallels exist in DB
+
+**Build:** `npm run build` passes clean.
+
+**Stale cache fix:**
+- Deleting `.next` after uninstalling `@imgly` resolved `Cannot find module './vendor-chunks/@swc.js'` 500 errors on `/checklist/[setId]`
+
+### Decisions Made
+- Compression only is the right pre-processing step for MVP; bg removal adds complexity and degrades card images when shot flat on a surface
+- Stage 2 should always attempt parallel identification — returning a named guess (even with `parallel_id: null`) is more useful than a hard stop
+
+### In-Flight / Partially Done
+- `supabase functions deploy scan-stage2` failed: CLI not linked. Run `supabase link --project-ref <ref>` then redeploy both `scan-stage1` and `scan-stage2`
+
+### Blockers / Open Questions
+- Same as previous: all pending migrations (00001, 00002, 00003, 20260418000001) must be applied
+- Edge Functions must be deployed after linking CLI
+
+### Next Session: Start Here
+1. **Checklist import screen — Beckett file variation handling:** small format differences between Beckett exports (column order, quoting, encoding, "Prizms" vs "Prizm" vs insert spacing) — review real-world CSVs and harden the parser
+2. **Collection page refinements:** continue polish (filter wiring, grouping, visual improvements)
+3. Apply all pending DB migrations
+4. Deploy Edge Functions: `supabase link --project-ref <ref>` → `supabase functions deploy scan-stage1 scan-stage2`
+5. Card Detail screen at `/collection/[id]` (Phase 3)
+
+---
+
 ## Session: April 20, 2026 — Scan + Collection Polish · Image Processing Pipeline
 
 ### Completed This Session

@@ -68,20 +68,8 @@ serve(async (req) => {
 
     const { data: parallels, error: parallelsError } = await parallelQuery;
     if (parallelsError) return ok({ error: `Failed to fetch parallels: ${parallelsError.message}` });
-    if (!parallels || parallels.length === 0) {
-      return ok({ session_id, parallel_candidates: [], unknown_parallel: true });
-    }
 
-    const parallelListText = parallels
-      .map((p) => {
-        const parts = [`ID: ${p.id}`, `Name: ${p.name}`];
-        if (p.color_description) parts.push(`Color: ${p.color_description}`);
-        if (p.finish_description) parts.push(`Finish: ${p.finish_description}`);
-        if (p.print_run) parts.push(`Print run: /${p.print_run}`);
-        if (p.notes) parts.push(`Notes: ${p.notes}`);
-        return parts.join(' | ');
-      })
-      .join('\n');
+    const hasChecklist = parallels && parallels.length > 0;
 
     // Build image content blocks from inline base64
     const imageContent = [
@@ -97,7 +85,21 @@ serve(async (req) => {
       });
     }
 
-    const promptText = `You are classifying the parallel variant of a specific WNBA trading card.
+    let promptText: string;
+
+    if (hasChecklist) {
+      const parallelListText = parallels
+        .map((p) => {
+          const parts = [`ID: ${p.id}`, `Name: ${p.name}`];
+          if (p.color_description) parts.push(`Color: ${p.color_description}`);
+          if (p.finish_description) parts.push(`Finish: ${p.finish_description}`);
+          if (p.print_run) parts.push(`Print run: /${p.print_run}`);
+          if (p.notes) parts.push(`Notes: ${p.notes}`);
+          return parts.join(' | ');
+        })
+        .join('\n');
+
+      promptText = `You are classifying the parallel variant of a specific WNBA trading card.
 
 Card identity: ${player_name ?? 'Unknown'} #${card_number ?? 'Unknown'} from ${set_name ?? 'Unknown'} (${year ?? 'Unknown'})${serial_detected ? `\nSerial number detected: ${serial_detected}` : ''}
 ${back_image_base64 ? '\nI am providing both FRONT and BACK. The front shows the parallel finish; the back confirms card number and serial.' : ''}
@@ -111,6 +113,22 @@ Return ONLY valid JSON — top 3 parallel candidates ordered by confidence:
 [{ "parallel_id": "...", "parallel_name": "...", "confidence": 0.0, "reasoning": "..." }]
 
 If you cannot identify any parallel, return []. Return ONLY the JSON array, no other text.`;
+    } else {
+      // No checklist — ask Claude to free-form describe what it sees
+      promptText = `You are identifying the parallel variant of a WNBA trading card. No checklist is available, so describe what you observe.
+
+Card identity: ${player_name ?? 'Unknown'} #${card_number ?? 'Unknown'} from ${set_name ?? 'Unknown'} (${year ?? 'Unknown'})${serial_detected ? `\nSerial number detected: ${serial_detected}` : ''}
+${back_image_base64 ? '\nI am providing both FRONT and BACK.' : ''}
+
+Examine the card carefully. Look at border color, foil finish, refractor pattern, serial number stamp, background shimmer, and any text on the card identifying the parallel.
+
+Name this parallel based on what you see (e.g. "Silver Prizm", "Gold /10", "Base", "Red White and Blue"). Use industry-standard Panini/Prizm naming conventions where applicable.
+
+Return ONLY valid JSON — your best guess plus up to 2 alternatives:
+[{ "parallel_id": null, "parallel_name": "...", "confidence": 0.0, "reasoning": "..." }]
+
+If you truly cannot determine the parallel, return []. Return ONLY the JSON array, no other text.`;
+    }
 
     const anthropic = new Anthropic({ apiKey: anthropicKey });
     const stage2Message = await anthropic.messages.create({
