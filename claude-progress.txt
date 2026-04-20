@@ -4,6 +4,118 @@
 
 ---
 
+## Session: April 20, 2026 — Scan + Collection Polish · Image Processing Pipeline
+
+### Completed This Session
+
+**Packages installed:**
+- `browser-image-compression` — client-side compress to ~400KB before AI pipeline
+- `@imgly/background-removal` — WASM-based background removal (BRIA RMBG model, loads from CDN)
+- `next.config.mjs` updated: `asyncWebAssembly: true, layers: true` for WASM support
+
+**New file: `src/lib/imageProcessing.ts`**
+- `processCardImage(file)` → compresses to 500KB, removes background, re-compresses PNG if >750KB
+- Background removal is a lazy dynamic import (`await import('@imgly/background-removal')`) — never runs on server
+- Failure-safe: any error in bg removal silently falls back to compressed original
+- Returns `{ file, previewUrl, bgRemoved }` — caller revokes `previewUrl` when done
+
+**Scan page (`src/app/scan/page.tsx`) — full visual rewrite matching `ScanScreen.jsx` design:**
+- `ScanHeader` component: orange "SCAN CARD" supertitle + Barlow Condensed 34px uppercase title, changes per stage
+- `Zone` component: dashed-border aspect-ratio capture zones (5/4 front, 7/3 back); camera icon circle (orange for required); Camera/Library ghost buttons inside zone
+- `ProcessingSteps` component: step-progression list (Uploading → Identifying → Classifying) with teal checkmarks for completed steps, pulsing card preview with orange ring
+- Success stage: radial teal+gold glow burst behind card, "★ Added to the Vault" badge, clean CTAs
+- Confirming stage: expanding dot navigator (active dot widens to 20px), inline confidence badge, AI reasoning accordion, redesigned field grid
+- Image processing pipeline:
+  - On file select → immediately shows original preview, kicks off `processCardImage` async
+  - `frontToken`/`backToken` refs prevent stale async results if user clears/re-selects
+  - Zone shows "Removing background…" overlay with spinner + "First use may take a moment" note while processing
+  - On complete → updates to processed preview + "✓ Background removed" / "✓ Compressed" badge
+  - "Identify Card" button disabled while `frontProcessing === true`
+  - `handleScan` uses `frontScanFile ?? frontFile` (processed file preferred; fallback to original)
+  - Max raw file size guard: 25MB (prevents browser tab crash; compression handles rest)
+
+**Collection page (`src/app/collection/page.tsx`) — polish:**
+- Replaced Unicode view toggle icons (`⊞ ☰ ⫶`) with inline SVGs (`VIEW_ICONS` map)
+  - Grid: 2×2 squares, List: 3 horizontal lines, Stack: 3 vertical bars of varying height
+- Added "By Set" and "By Team" display chips (matching design — no active filter state for now)
+
+**Build:** `npm run build` passes clean, all 16 routes. `/scan` is 36.4 kB (expected — new packages).
+
+### Decisions Made
+- Background removal happens **before** "Identify Card" tap (not during the AI pipeline) — user sees the processed card while waiting, and the scan button is not delayed by AI round-trips.
+- Token-ref cancellation pattern: `++frontToken.current` on each new file selection; processing result ignored if token changed (user cleared or replaced image during processing).
+- First CDN model download (~50MB) shown with "First use may take a moment" copy — no timeout enforced. Model is browser-cached for all subsequent scans.
+- Transparent PNG output from bg removal is sent directly to Claude Vision — transparent areas don't interfere with card identification.
+
+### In-Flight / Partially Done
+- "By Set" and "By Team" chips visible in Collection but not wired to filter logic (design shows them as inactive placeholders)
+
+### Blockers / Open Questions
+- Same as previous: all pending migrations + Edge Functions still need to be applied/deployed
+
+### Next Session: Start Here
+- Apply all pending DB migrations (00001, 00002, 00003, 20260418000001)
+- Deploy Edge Functions: `supabase functions deploy scan-stage1 scan-stage2`
+- Implement Card Detail screen (`/collection/[id]` — Phase 3, `CardDetailScreen.jsx` in design bundle)
+- Wire real Supabase data to Want List and Goals
+
+---
+
+## Session: April 19, 2026 — Phase 2.6 · Post-Design Code Review + Bug Fixes
+
+### Completed This Session
+- Ran `/review` against Phase 2.6 UI design implementation diff (39 files, ~10k insertions)
+- Fixed all identified bugs in `src/app/collection/page.tsx`:
+  - **`hits` filter semantic bug**: Replaced `c.cost > 200` cost proxy with correct card-collecting
+    definition of "hit" — `isHit()` returns true when `serial !== null` (serially numbered card)
+    OR `PARALLELS[parallel].run <= 99` (low-print-run numbered parallel). Extracted as module-level
+    pure function for reuse across filter, chip count, and stat strip.
+  - **`loadCollection` stale closure**: Inner async function called inside `useEffect` but missing
+    from deps array. Wrapped in `useCallback` (stable: only closes over `supabase` singleton and
+    stable `setState` functions), added to `useEffect` deps to satisfy exhaustive-deps.
+  - **`fav: false` placeholder**: Added `// TODO: add favorites column to collection table` comment
+    to mark it as intentional pending work.
+  - **Big Hits chip count**: Added `count={cards.filter(isHit).length}` prop to match other chips.
+  - **`hitsCount` stat strip**: Updated from filtered subset + cost check to `cards.filter(isHit).length`
+    (always shows total hits, not filtered-down hits).
+- Confirmed two review findings were false positives (no changes needed):
+  - `isPremium` is NOT dead code — used at CardArt line 150 for holo-sweep overlay condition
+  - Feature card destructuring is NOT unsafe — already guarded by `{feature && (` at line 491
+- `npm run build` and `npx tsc --noEmit` both pass clean after fixes
+
+### Phase Checklist Updates
+- [x] Phase 2.6 post-implementation review completed
+- [x] `hits` filter uses correct card-collecting semantics
+- [x] `loadCollection` stale closure resolved with `useCallback`
+- [x] Stat strip `hitsCount` corrected
+
+### Decisions Made
+- "Hit" definition: `serial !== null` OR `print_run <= 99`. No `auto`/`patch` field exists yet;
+  print_run ≤ 99 is the correct proxy. Cost is irrelevant to card rarity classification.
+- `isHit()` extracted at module level (not inside component) — pure function, no closure risk.
+- `useCallback` deps are empty `[]` — `supabase` is a module-level singleton, `setCards`/`setLoading`
+  are stable React dispatch functions. No re-execution triggered on re-renders.
+
+### In-Flight / Partially Done
+- None
+
+### Blockers / Open Questions
+- Same as previous: all pending migrations + Edge Functions still need to be applied/deployed
+
+### Lower-Priority Debt (Not Addressed This Session)
+- `// MOCK` comments not added to want-list/goals pages
+- `⊞ ☰ ⫶` Unicode view-toggle icons may render inconsistently cross-platform — inline SVGs preferred
+- `(data as unknown as DBCollectionRow[])` cast — add TODO to regenerate `database.types.ts`
+
+### Next Session: Start Here
+- Apply all pending DB migrations (00001, 00002, 00003, 20260418000001)
+- Deploy Edge Functions: `supabase functions deploy scan-stage1 scan-stage2`
+- Implement Card Detail screen (`CardDetailScreen.jsx` in `.design-bundle/` — 25KB, includes price sparkline, comp rows, sell sheet)
+- Wire real Supabase data to Want List (`want_list` table exists; page currently uses mock `WANTS` array)
+- Schema design + backend for Goals (no DB table yet; page uses mock `GOALS` data)
+
+---
+
 ## Session: April 17, 2026 — Phase 2 · Code Review + Pre-Commit Fixes
 
 ### Completed This Session
@@ -392,10 +504,10 @@
 | 1 | Manual collection management | ✅ Complete |
 | 2 | Scan pipeline | ✅ Complete |
 | 2.5 | Checklist management | ✅ Complete |
-| 2.6 | UI/UX design implementation | ✅ Complete |
-| 3 | Want list + goals (backend) | 🔲 Not started |
-| 4 | eBay alerts + comps | 🔲 Not started |
-| 5 | eBay listing helper | 🔲 Not started |
+| 2.6 | UI/UX design implementation + bug fixes | ✅ Complete |
+| 3 | Card Detail screen + Want List + Goals (backend + Goals→Want List sync) | 🔲 Not started |
+| 4 | eBay alerts + comps (EbayListingsSheet + scheduled alerts) | 🔲 Not started |
+| 5 | eBay listing helper (SellSheet → listing copy generation) | 🔲 Not started |
 | 6 | PWA + polish | 🔲 Not started |
 
 Status key: 🔲 Not started · 🟡 In progress · ✅ Complete

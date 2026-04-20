@@ -103,15 +103,38 @@ function FilterChip({ label, active, count, onClick }: { label: string; active?:
 
 // ── View mode button ───────────────────────────────────────────────────────────
 
-function ViewBtn({ mode, current, onClick, icon }: { mode: ViewMode; current: ViewMode; onClick: () => void; icon: string }) {
+const VIEW_ICONS: Record<ViewMode, React.ReactNode> = {
+  grid: (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor">
+      <rect x="0" y="0" width="6.5" height="6.5" rx="1.2"/>
+      <rect x="8.5" y="0" width="6.5" height="6.5" rx="1.2"/>
+      <rect x="0" y="8.5" width="6.5" height="6.5" rx="1.2"/>
+      <rect x="8.5" y="8.5" width="6.5" height="6.5" rx="1.2"/>
+    </svg>
+  ),
+  list: (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M2 3.5h11M2 7.5h11M2 11.5h11"/>
+    </svg>
+  ),
+  stack: (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor">
+      <rect x="0" y="1" width="4" height="13" rx="1.2"/>
+      <rect x="5.5" y="0" width="4" height="15" rx="1.2"/>
+      <rect x="11" y="2" width="4" height="11" rx="1.2"/>
+    </svg>
+  ),
+};
+
+function ViewBtn({ mode, current, onClick }: { mode: ViewMode; current: ViewMode; onClick: () => void }) {
   const active = mode === current;
   return (
     <button onClick={onClick} style={{
       width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
       background: active ? '#FF471326' : 'transparent',
       color: active ? '#FF4713' : '#45454E',
-      fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>{icon}</button>
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>{VIEW_ICONS[mode]}</button>
   );
 }
 
@@ -466,11 +489,13 @@ export default function CollectionPage() {
             <FilterChip label="Rookies"  active={filter === 'rookies'} count={cards.filter(c => c.rookie).length}    onClick={() => setFilter('rookies')} />
             <FilterChip label="Premium"  active={filter === 'premium'} count={cards.filter(c => { const p = PARALLELS[c.parallel]; return p.run !== undefined && p.run <= 25; }).length} onClick={() => setFilter('premium')} />
             <FilterChip label="Big Hits" active={filter === 'hits'}    count={cards.filter(isHit).length} onClick={() => setFilter('hits')} />
+            <FilterChip label="By Set" />
+            <FilterChip label="By Team" />
           </div>
           <div style={{ display: 'flex', gap: 2, marginLeft: 8, flexShrink: 0 }}>
-            <ViewBtn mode="grid"  current={view} onClick={() => setView('grid')}  icon="⊞" />
-            <ViewBtn mode="list"  current={view} onClick={() => setView('list')}  icon="☰" />
-            <ViewBtn mode="stack" current={view} onClick={() => setView('stack')} icon="⫶" />
+            <ViewBtn mode="grid"  current={view} onClick={() => setView('grid')} />
+            <ViewBtn mode="list"  current={view} onClick={() => setView('list')} />
+            <ViewBtn mode="stack" current={view} onClick={() => setView('stack')} />
           </div>
         </div>
       </div>

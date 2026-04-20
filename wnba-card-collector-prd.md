@@ -1,10 +1,11 @@
 # WNBA Card Collector — Product Requirements Document
 
-**Version:** 0.2 (Living Document)
+**Version:** 0.3 (Living Document)
 **Owner:** Brook
-**Last Updated:** April 17, 2026 (Phase 2 complete)
+**Last Updated:** April 20, 2026 (Phase 2.6 complete — design bundle implemented)
 **Stack:** Next.js · Supabase · Vercel · Claude Vision API · eBay API · Resend
 **Companion Docs:** `styling-guidelines.md` (UI/UX, design tokens, component patterns)
+**Design Reference:** `.design-bundle/chase-wnba-card-collection-tool/project/` — canonical source for all screen layouts
 
 ---
 
@@ -225,8 +226,11 @@ create table public.collection (
   condition text,                -- Raw, NM, EX, etc.
   cost_paid numeric(8,2),
   acquisition_date date,
+  source text,                   -- e.g. "eBay auction", "Card show"
   notes text,
-  scan_image_url text,           -- Supabase Storage URL
+  fav boolean default false,     -- user-starred cards
+  scan_image_url text,           -- Supabase Storage URL (front)
+  scan_back_url text,            -- Supabase Storage URL (back) — shown on card flip
   created_at timestamptz default now()
 );
 
@@ -236,6 +240,7 @@ create table public.want_list (
   user_id uuid references auth.users(id) on delete cascade,
   card_id uuid references public.cards(id),
   parallel_id uuid references public.parallels(id),
+  goal_id uuid references public.goals(id),  -- set when auto-added from a Goal
   status text default 'wanted',  -- 'wanted' | 'ordered' | 'received'
   max_price numeric(8,2),
   priority int default 3,        -- 1 (high) to 5 (low)
@@ -351,20 +356,45 @@ Sets, cards, and parallels are shared reference data — readable by all authent
 
 ### 6.1 Collection Management
 
-**Card Detail View**
-- Card image (scan or placeholder)
-- Player name, set, year, card number
-- Parallel badge (color-coded)
-- Serial number (if applicable)
-- Condition, cost paid, acquisition date
-- Current eBay comp price (on-demand pull)
-- Actions: Edit · Add to Want List · Generate eBay Listing · Delete
+**Collection List View ("The Vault")**
+- Header: "The Vault" + user avatar + stat strip (total cards / estimated value / hit count)
+- Search bar + filter chips: All / Rookies / Premium / Big Hits
+- View toggle: grid / list / stack
+- All data wired to Supabase; parallel name → `nameToParallelKey()` → CardArt visual treatment
+- `isHit()` = `serial !== null` OR `print_run <= 99`
 
-**Collection List View**
-- Search by player name
-- Filter by: set, parallel, year, team
-- Sort by: player, acquisition date, value
-- Quick stats header: total cards, estimated value
+**Card Detail View** *(design ref: `CardDetailScreen.jsx`)*
+
+The "museum piece" view — full-bleed CardArt hero with ambient team-color glow behind it.
+
+*Layout (top to bottom):*
+- Sticky nav bar: back chevron + "Detail · #N" label + meatball menu; backdrop blur on scroll
+- **Hero**: `CardArt` component at `size="lg"` with 3D tilt (`rotateY(-4deg) rotateX(2deg)`), perspective 1000px. Tap toggles flip state — flipped side shows the scanned back-of-card image (not player stats).
+- **Title block**: `ParallelBadge` + optional ROOKIE tag + serial number (monospace, parallel-colored) → player name (Barlow Condensed 34px) → team · set · card number
+- **Value Strip**: 3-column grid — Market value / P&L (cost vs. market, green/red delta) / (Pop — mock only, not a real data source in MVP)
+- **Tabs**: Overview · Comps · History (tab switching is UI-only in Phase 3; History tab deferred)
+- **Your copy**: Condition (color-coded badge) · Acquired date · Paid · Source
+- **Recent comps**: List of recent eBay comps (price, condition, date, source) — max 4 inline, "See all" expands
+- **Sibling cards**: Horizontal scroll strip of other parallels of the same base card you own
+- **Notes**: Free-text field editable inline
+
+*Bottom action bar (fixed, gradient fade):*
+- **Share** — native share sheet (card image + metadata)
+- **Check eBay** — opens `MarketSheet` overlay (see §8.1)
+- **Sell** (primary, orange) — opens `SellSheet` overlay
+
+*SellSheet overlay (bottom sheet, slides up from 45%):*
+- Suggested BIN price (based on comps)
+- Auction start price
+- Condition claim (from your notes)
+- "Review & publish →" — generates listing copy (see Phase 5); no auto-submit in MVP
+
+*MarketSheet overlay (bottom sheet, slides up from 30%):*
+- Shared `EbayListingsSheet` component (see §8.1)
+- Manual fetch trigger ("Check eBay" / "Refresh")
+- Lists: price, condition tag, BIN/AUCTION type, seller, rating, ends timer
+- "In range" badge when price ≤ target; "Best" badge on cheapest BIN
+- "Open on eBay ↗" CTA
 
 **Quick Lookup (Mobile)**
 - Prominent search bar at top
@@ -373,51 +403,95 @@ Sets, cards, and parallels are shared reference data — readable by all authent
 
 ### 6.2 Want List
 
-**Status Pipeline**
+**Mental model:** A live price-tracking board of cards you're hunting. The primary driver is the **Goals screen** — when you mark a card as needed in a goal, it auto-populates the Want List. You can also add wants manually.
 
-```
-[Wanted] → [Ordered] → [Received → auto-promote to Collection]
-```
+**Want List View** *(design ref: `WantListScreen.jsx`)*
 
-- Status changed by tap/swipe on mobile
-- "Received" triggers a prompt: "Add to collection now?"
-- Max price field drives eBay alert threshold
-- Priority field (1–5) drives alert email ordering
+- Header: "Want List" + count + estimated total cost to finish
+- **Alert strip** (animated pulse dot): shown when any item's market price has dropped into your target range
+- Filter chips: All · Price alerts · [Named rainbow chase] · Rookies · Under $100
+- + button → `AddWantFlow`
 
-**Want List View**
-- Grouped by status (three columns or tabs on mobile)
-- eBay alert badge: active / paused per item
-- Tap item → detail with recent eBay comps
+**Want Row** (one per card):
+- Mini `CardArt` thumbnail
+- Priority dot (red/yellow/grey = high/med/low)
+- `ParallelBadge` + RC tag
+- Player name + team short code + card number + print run
+- **Progress bar**: fills as market price approaches your target; turns orange and glows when in range
+- Market vs. target prices (monospace)
+- Delta label: "✦ X% under your target" (orange) or "+X% over target" (grey)
+- Optional personal note (italic)
+- "Check eBay" pill button — appears only when in range; opens `EbayListingsSheet`
+- "Checked Xh ago" timestamp badge (manual fetch, not live polling)
+
+**AddWantFlow:**
+- Search-first: type player name → see matching cards from checklist
+- Each result shows `CardArt` thumbnail + parallel + price
+- Select card → set target price via slider
+- "Add to Want List →" confirm
+
+**Goals → Want List integration:**
+- When a card is marked needed in a Goal (not yet owned), it is automatically added to the Want List
+- Completing it in the Want List (scan + confirm) removes it from both lists
+- "Add to wants" button appears on unowned parallel rows in GoalDetail
+
+**Status pipeline** (backend only — not surfaced prominently in UI):
+- `wanted` → `ordered` → `received`
+- `received` triggers prompt: "Scan this card to add to collection"
+- Status field exists in `want_list` table for future UI use
 
 ### 6.3 Collection Goals
 
-Goals are flexible — not just "complete a full set" but any defined subset of cards you're chasing. Examples:
-
-- All 150 Base Silver Prizms
-- All 15 Fearless Blue Pulsar inserts
-- All Caitlin Clark cards across any set
-- All /99 or lower parallels of A'ja Wilson
+**Mental model:** A "progress wall" of active chases. Each goal is a visual tracker — not just a percentage, but color swatches you fill in, grids that light up, rings that close. *(design ref: `GoalsScreen.jsx`)*
 
 **Goal Types**
 
-| Type | Definition | Example |
-|------|-----------|---------|
-| Full insert set | Every card in an insert name | All 15 "Fearless" base |
-| Insert + parallel | Every card in an insert + specific parallel | All 15 "Fearless Blue Pulsar" |
-| Player across set | All cards of one player in one product | All Clark cards in 2024 Prizm |
-| Custom | User-defined card list | Hand-picked want targets |
+| Type | Glyph | Definition | Example |
+|------|-------|-----------|---------|
+| Rainbow chase | ❏ | Every parallel of one specific card | All 11 parallels of Clark '24 Prizm #1 |
+| Complete a set | ▦ | Every card in a base or insert set | 2024 Prizm base · #1–100 |
+| Team set | ⬡ | Every base card for one team | 2024 Indiana Fever base set |
+| Player PC | ◉ | Every card of one player across sets/years | All Cameron Brink cards |
+| Rookie class | ✦ | First-year cards of a draft class | 2024 Top 10 RCs |
+| Custom | ◆ | Hand-picked card list | Trade-up targets |
 
-**Goal Configuration**
-- Name (free text)
-- Scope: pick from set → optionally filter by insert name → optionally filter by parallel
-- Or: player filter across a full product
-- Or: manual card list (custom goal)
+**Goals Overview Screen:**
+- Header: "Goals" + active count + completed count + "+" button
+- **Featured Rainbow tile** (first goal, if type = rainbow): large card showing all parallel slots as color swatches (filled = owned, dashed border = needed), gradient progress bar, "View progress →" and "X on market" CTAs
+- Below: list of `GoalCard` rows, each with: SVG progress ring (% complete), tint accent bar, goal type label, title, subtitle, X/Y count, "N to go" or "complete"
+- Section dividers: "In progress" / "Completed"
 
-**Goal Detail View**
-- Progress bar: X of Y cards owned
-- Two tabs: **Have** / **Still Need**
-- "Still Need" items are one-tap addable to Want List
-- Sort Still Need by card number, player name, or estimated value
+**GoalCreate screen:**
+- Goal type picker (6 types, radio select)
+- Card/set/player search to define scope
+- Checklist auto-generated from DB once scope is set
+- "Select a card to continue" → confirm CTA
+
+**GoalDetail screen (Rainbow chase):**
+- Title + set + player header
+- Stat grid: Owned / To go / Spent
+- Parallel checklist: each row has color swatch (filled/dashed), parallel name, print run, market price
+- Owned rows: "✓ Owned" badge (orange)
+- Unowned rows: "Add to wants" button → adds to Want List and flags as goal-linked
+
+**SetBuildDetail screen (Complete a set / Team set):**
+- Header: set name + progress (e.g., "62/100 · 62% COMPLETE") + progress bar
+- Tabs: All [N] / Missing [N] / Duplicates [N]
+- **Card-number grid**: 10-across grid; each cell = one card number, lit (owned) or dimmed (missing)
+- "Cheapest missing" section: list of unowned cards with last-seen market price + "Add to want" button
+
+**GoalCelebrate screen:**
+- Triggered when last card of a goal is confirmed to collection
+- Full-screen celebration: ambient sparkle field, diagonal light rays
+- "★ CHASE COMPLETE ★" headline
+- All parallel swatches filled
+- Stats: total cards / chase duration / total invested
+- CTAs: "Share the rainbow" / "Next chase →"
+
+**Goals → Want List integration (critical):**
+- Every unowned card in a goal is mirrored on the Want List automatically
+- Scanning + confirming a card removes it from the Want List and marks the goal slot as owned
+- Want List rows sourced from goals show the goal name as context
 
 ### 6.4 Checklist Management
 
@@ -581,20 +655,38 @@ If Stage 1 detects a serial number (e.g., `/25`), filter the parallel candidate 
 
 Store in Supabase Vault / environment variables. Never expose in client.
 
-### 8.1 On-Demand Current Listings
+### 8.1 On-Demand Current Listings — `EbayListingsSheet` Component
 
 > **Note:** eBay Sold Comps API (findCompletedItems) is restricted/unavailable. All eBay pricing is based on **current active listings** only.
 
-**Trigger:** User taps "Check eBay" on any card in collection or want list
+**`EbayListingsSheet`** is a shared bottom-sheet component *(design ref: `EbayListingsSheet.jsx`)* used in three contexts:
+- Card Detail → "Check eBay" → `MarketSheet` overlay
+- Want List row → "Check eBay" pill button (in-range items only)
+- Goal Detail → unowned parallel row → "Check eBay"
 
-**Flow:**
+**UX behavior:**
+- Prices are **not fetched automatically** — user taps "Check eBay" to trigger. Reduces API calls and makes timing explicit.
+- After first fetch, a "Refresh" button replaces the CTA; timestamp shown ("Prices from Today · 2:14 PM · N listings")
+- Unfetched state shows a placeholder: "Tap Check eBay to fetch live listings"
+- Listings sorted by price ascending
+
+**Each listing row shows:**
+- Price (monospace, orange if ≤ target)
+- Condition tag (gold badge)
+- Type: BIN or AUCTION (red for auction)
+- Seller name + star rating + time remaining + bid count (auctions)
+- "In range" pill badge when price ≤ user's target
+- "Best" badge on cheapest BIN listing
+- Tap row → opens eBay in browser
+
+**Footer:** Target price display + "Open on eBay ↗" primary CTA
+
+**Flow (when triggered):**
 1. Call eBay Browse API `search` with constructed query
 2. Filter to Buy It Now listings (exclude pure auctions to avoid noise from artificially low starting bids)
 3. Return up to 10 current listings sorted by price ascending
 4. Cache results in `ebay_comps` table with 24hr TTL
-5. Display: current price, listing title, seller, link — in a bottom sheet modal
-
-**What this is good for:** Quickly seeing what comparable cards are listed at right now, useful for pricing decisions before selling or checking if a want list card is available.
+5. Render in `EbayListingsSheet` bottom sheet
 
 **Search Query Construction:**
 ```
@@ -667,12 +759,14 @@ Strip low-signal words. If serial detected, append serial fragment.
 
 ### Navigation (Mobile)
 
-Bottom tab bar with 5 items:
-1. **Collection** (home, grid/list of owned cards)
-2. **Scan** (camera icon, primary action — always accessible)
-3. **Want List** (pipeline view)
-4. **Goals** (set completion tracker)
-5. **eBay** (comps + listing generator + alert history)
+Bottom tab bar with **4 items** — eBay is accessed via action buttons on Card Detail, not a top-level tab. Scan is a raised FAB in the center.
+
+1. **Collection** — grid/list of owned cards ("The Vault")
+2. **Want List** — price-tracking board
+3. **Scan** (raised orange FAB, center) — primary action, always accessible, glow shadow
+4. **Goals** — chase tracker
+
+eBay comps and listing generator are accessed via the Card Detail bottom action bar ("Check eBay" / "Sell"), not from a main nav tab. The eBay tab may be added post-MVP if alert history warrants its own screen.
 
 ### Scan Flow UX
 
@@ -787,20 +881,58 @@ Bottom tab bar with 5 items:
 
 ---
 
-### Phase 3 — Want List & Goals
+### Phase 2.6 — UI/UX Design Implementation
 
-**Goal:** Full pipeline tracking and set-completion visibility
+**Goal:** Implement hi-fi WNBA design from claude.ai/design bundle across all screens
 
-- [ ] Want list CRUD
-- [ ] Status pipeline UI: Wanted / Ordered / Received
-- [ ] Status tap-to-advance on mobile
-- [ ] "Received" → prompt to add to collection
-- [ ] Goal creation: pick set + parallel
-- [ ] Goal detail: Have vs. Still Need lists
-- [ ] One-tap "Add to Want List" from Still Need
-- [ ] Dashboard: collection stats, open wants, goal progress
+- [x] `CardArt.tsx` component — team gradients, parallel treatments, holo sweep
+- [x] `ParallelBadge.tsx` — animated parallel pills
+- [x] `cardData.ts` — TEAMS + PARALLELS constants, `nameToParallelKey()`
+- [x] Collection page ("The Vault") — stat strip, filter chips, view toggle, real Supabase data
+- [x] Want List page — alert strip, progress bars, priority dots (mock data)
+- [x] Goals page — rainbow chase featured tile, SVG progress rings (mock data)
+- [x] BottomNav — 4-tab layout, raised Scan FAB
+- [x] CSS keyframe animations: rainbow-border, holo-sweep, mojo-shift, shimmer-sweep, tilt-card
+- [x] Post-implementation code review + bug fixes (`isHit()`, stale closure, stat strip)
 
-**Done when:** You have a full want list and can see set completion progress.
+**Status: ✅ Complete** — April 19, 2026. Pending: apply DB migrations + deploy Edge Functions.
+
+---
+
+### Phase 3 — Card Detail + Want List + Goals (Backend)
+
+**Goal:** Implement Card Detail screen; wire real Supabase data to Want List and Goals; build Goals→Want List integration
+
+**Card Detail Screen** *(design ref: `CardDetailScreen.jsx`)*
+- [ ] Route: `/collection/[id]` — full card detail page
+- [ ] Hero: `CardArt` lg size with 3D tilt; flip state shows scanned back-of-card image
+- [ ] Value Strip: market price (from `ebay_comps` cache or manual), P&L vs cost paid
+- [ ] "Your copy" section: condition, acquired, paid, source
+- [ ] Recent comps: pull from `ebay_comps` table (up to 4 inline)
+- [ ] Sibling cards: other collection rows with same `card_id`, different `parallel_id`
+- [ ] Notes field: editable inline, saved to `collection.notes`
+- [ ] Bottom action bar: Share / Check eBay (→ MarketSheet) / Sell (→ SellSheet)
+- [ ] SellSheet overlay: suggested BIN + auction start (from comps) + condition + "Review & publish" → Phase 5
+
+**Want List Backend**
+- [ ] Wire `want_list` table to Want List page (replace mock `WANTS` array)
+- [ ] `AddWantFlow`: search checklist → select parallel → set target price → insert `want_list` row
+- [ ] "Check eBay" pill → trigger `EbayListingsSheet` fetch for that want item
+- [ ] "Checked Xh ago" timestamp from `ebay_comps.fetched_at`
+- [ ] Alert strip: query for `want_list` items where `ebay_comps.current_price <= want_list.max_price`
+- [ ] Status field (backend only): `wanted` → `ordered` → `received`; `received` → prompt to scan
+
+**Goals Backend**
+- [ ] Schema: `goals` + `goal_cards` tables (already in PRD §5 — confirm migrations applied)
+- [ ] Wire Goals page to real data (replace mock goals with DB-driven)
+- [ ] GoalCreate flow: type picker → scope selector → auto-generate `goal_cards` from checklist
+- [ ] GoalDetail (rainbow): parallel checklist rows from `goal_cards` + `collection` join
+- [ ] SetBuildDetail: card-number grid from `goal_cards`; missing = not in `collection`
+- [ ] GoalCelebrate: trigger when last `goal_card` is confirmed to collection
+- [ ] **Goals → Want List sync**: when a goal card is not in collection, ensure it exists in `want_list` (upsert on goal create + on collection change)
+- [ ] "Add to wants" button in GoalDetail → `want_list` insert with `goal_id` reference
+
+**Done when:** You can create a rainbow chase goal, see which parallels you own vs. need, tap "Add to wants" on missing ones, and see them in the Want List with eBay price tracking.
 
 ---
 
@@ -890,6 +1022,16 @@ Bottom tab bar with 5 items:
 | 19 | Scan image size limit | Client enforces 750KB max before base64 conversion. Supabase Edge Function payload limit is ~1MB; base64 overhead (~33%) means 750KB raw → ~1MB encoded. No server-side resize in MVP. | April 2026 |
 | 20 | Checklist management timing | Phase 2.5 (separate mini-phase) inserted between Phase 2 and Phase 3. Ensures Stage 2 parallel classification has reference data to match against before building Want List + Goals. | April 2026 |
 | 20 | UI/UX scaffolding strategy (Phase 2.5+) | **Option C: Hybrid Smart Scaffold.** Each page/feature stub is built with realistic Tailwind structure (card layouts, grids, spacing) — no placeholder text. Component patterns from earlier phases are reused (e.g., Field, StatusBadge, MotionCard). `// TODO: implement X` comments mark incomplete sections. Maintains visual consistency without design overhead; enables fast iteration while preventing design debt. Reference `styling-guidelines.md` religiously. | April 2026 |
+| 21 | Bottom navigation tab count | **4 tabs** (Collection, Want List, Scan FAB, Goals). eBay removed from main nav — accessed via Card Detail action bar ("Check eBay" / "Sell"). eBay tab may be added post-MVP if alert history warrants its own screen. | April 2026 |
+| 22 | Goals → Want List integration | Non-owned cards in any Goal are automatically mirrored to the Want List. Scanning + confirming a card removes it from both. "Add to wants" CTA on GoalDetail unowned rows. `want_list` rows store optional `goal_id` reference for context display. | April 2026 |
+| 23 | Want List UX model | **Price-tracking board, not status pipeline.** Want rows show market vs. target with progress bar + delta %. Status pipeline (wanted/ordered/received) exists in the DB and backend but is not surfaced prominently in the UI for MVP. Primary surface is Goals → Want List. | April 2026 |
+| 24 | EbayListingsSheet | **Shared bottom-sheet component** used by Card Detail (MarketSheet), Want List rows, and Goal Detail. Prices are fetched manually (not auto-polled) — user taps "Check eBay". Timestamp of last fetch shown. Design ref: `EbayListingsSheet.jsx`. | April 2026 |
+| 25 | Card Detail price sparkline | **Removed from MVP.** eBay sold comps unavailable; internal price history insufficient to build a meaningful 90-day chart at this stage. May be revisited if a comps data source becomes available. | April 2026 |
+| 26 | Population ("Pop") on Card Detail | **Mock/omitted in MVP.** Grading population data (PSA/BGS) requires a paid API. Value Strip shows Market / P&L / Pop — Pop will display a static placeholder until a real source is wired (post-MVP). | April 2026 |
+| 27 | Card back on Card Detail | **Shows scanned back-of-card image**, not player stats. Flip state toggles between `CardArt` front and the scan image stored in `collection.scan_image_url` (back). Player stats require a WNBA stats API — deferred to post-MVP. | April 2026 |
+| 28 | Physical card location field | **Not added.** Collection schema does not include a "binder location" field. Free-text `notes` field on `collection` is sufficient for MVP. | April 2026 |
+| 29 | SellSheet UX | **Bottom sheet overlay from Card Detail** (slides up from 45% of screen height). Shows suggested BIN + auction start from comps data + condition claim. "Review & publish" CTA generates listing copy (Phase 5) — no auto-submit. Design ref: `SellSheet` in `CardDetailScreen.jsx`. | April 2026 |
+| 30 | Design reference canonicity | The `.design-bundle/chase-wnba-card-collection-tool/project/` directory is the **canonical source** for all screen layouts, interaction states, animation specs, and component composition. PRD §6 describes intent; the JSX files describe exact implementation. When in conflict, the JSX files win for UI decisions. | April 2026 |
 
 ---
 
