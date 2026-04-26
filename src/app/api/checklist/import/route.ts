@@ -32,8 +32,9 @@ function parseCsv(text: string): CsvRow[] {
     // Split on comma but handle fields that might be quoted
     const cols = splitCsvLine(lines[i]);
     if (cols.length < 4) continue;
-    // Skip header rows (by content, not just first line)
-    if (cols[0].trim() === 'Card Set') continue;
+    // Skip header rows: case-insensitive, BOM-stripped (Donruss exports start with UTF-8 BOM)
+    const firstColNorm = cols[0].replace(/^\uFEFF/, '').trim().toLowerCase();
+    if (firstColNorm === 'card set') continue;
 
     rows.push({
       cardSet: cols[0].trim(),
@@ -110,14 +111,21 @@ function parseCardSet(cardSet: string, rootInserts: string[]): ParsedCardSet {
 
 function parseSequence(seq: string): { printRun: number | null; isNumbered: boolean } {
   if (!seq?.trim()) return { printRun: null, isNumbered: false };
-  // Beckett uses "/99" (denominator only) or "1/1" (specific serial).
-  // The old regex broke on leading-slash format — use lastIndexOf instead.
   const s = seq.trim();
+
+  // Slash format: "/99" or "1/1" — Beckett/Prizm/Select style
   const slash = s.lastIndexOf('/');
   if (slash !== -1) {
     const printRun = parseInt(s.slice(slash + 1), 10);
     if (!isNaN(printRun) && printRun > 0) return { printRun, isNumbered: true };
   }
+
+  // Plain integer format: "25" — Donruss/Panini style (no slash)
+  if (/^\d+$/.test(s)) {
+    const printRun = parseInt(s, 10);
+    if (printRun > 0) return { printRun, isNumbered: true };
+  }
+
   return { printRun: null, isNumbered: false };
 }
 
